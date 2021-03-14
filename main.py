@@ -3,9 +3,9 @@ import random
 import sys
 from pygame.locals import *
 
-star_img = pygame.image.load('desktop/rt/obj.png')
-planet_img = pygame.image.load('desktop/rt/plan.png')
-hole_img = pygame.image.load('desktop/rt/sun.png')
+star_img = pygame.image.load('desktop/rt/data/obj.png')
+planet_img = pygame.image.load('desktop/rt/data/plan.png')
+hole_img = pygame.image.load('desktop/rt/data/sun.png')
 
 
 class settings:
