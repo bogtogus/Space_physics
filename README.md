@@ -1,2 +1,3 @@
 # Space_physics
-pygame
+Made with pygame.
+###### Если что-то непонятно, пишите.
