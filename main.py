@@ -1,23 +1,19 @@
 import pygame
-import random 
-import sys
-import time
+#import random 
+#import sys
+from time import time
 from pygame.locals import *
 
 star_img = pygame.image.load('data/obj.png')
 planet_img = pygame.image.load('data/plan.png')
 hole_img = pygame.image.load('data/sun.png')
 
-t1 = int(round(time.time() * 1000))
-k = 0
-fps = 0
-
 class settings:
-    def __init__(self, fps=50, size='1920x1080', autosize=False):
+    def __init__(self, fps=50, size=(1920, 1080), autosize=False):
         self.fps = fps
         if autosize:
-            size = str(pygame.display.Info().current_w) + 'x' + str(pygame.display.Info().current_h)
-        self.size = list(map(int, size.split('x')))
+            size = (pygame.display.Info().current_w, pygame.display.Info().current_h)
+        self.size = size
         self.screen = None
 
 class star:
@@ -47,17 +43,25 @@ class hole:
         self.r = 30
         self.m = 1000000
 
-def fps_val():
-    global t1, k, fps
-    k += 1
-    pygame.draw.rect(user.screen, 'black', (0, 0, 40, 20))
-    user.screen.blit(font.render(str(int(fps)), True, (255, 255, 0)), (0, 0))
-    if int(round(time.time() * 1000)) - t1 > 1000:
-        fps = k
-        k = 0
-        t1 = int(round(time.time() * 1000))
+cur_time = int(round(time() * 1000))
+cadrs = 0
+fps = 0
+def fps_val(): # значение кадров/c
+    global cur_time, cadrs, fps
+    cadrs += 1
+    pygame.draw.rect(user.screen, 'black', (0, 0, 30, 80))
+    if int(round(time() * 1000)) - cur_time > 1000:
+        fps = cadrs
+        cadrs = 0
+        cur_time = int(round(time() * 1000))
+    user.screen.blit(font.render(str(fps) + ' fps', True, (255, 255, 0)), (0, 0))
+    user.screen.blit(font.render(str(len(space_objects)) + ' obj', True, (230, 230, 230)), (0, 30))
 
-def step():
+    user.screen.blit(font.render('[0]: ' + str((int((space_objects[0].x + movement[0]) * zoom), \
+        int((space_objects[0].y + movement[1]) * zoom))) + ', Real: ' + str((int(space_objects[0].x), \
+        int(space_objects[0].y))), True, (0, 230, 230)), (0, 60))
+
+def step(): # шаг
     for i in range(len(space_objects)): # текущий
         for j in range(len(space_objects)): # второй
             if i == j: 
@@ -80,7 +84,7 @@ def step():
                 ay = (-1) * a * dy / space_objects[j].r
                 space_objects[i].vx -= ax * dt
                 space_objects[i].vy += ay * dt
-    # координаты меняем позже, потому что они влияют на вычисление ускорения
+    # изменение координат
     for i in range(len(space_objects)):
         space_objects[i].x += space_objects[i].vx * dt
         space_objects[i].y += space_objects[i].vy * dt
@@ -95,14 +99,13 @@ if __name__ == '__main__':
 
     pygame.init()
     user = settings(autosize=True)
-    user.screen = pygame.display.set_mode(user.size, pygame.FULLSCREEN)
-    display = pygame.Surface((int(user.size[0]), int(user.size[1])))
-    pygame.display.set_caption('Game')
+    user.screen = pygame.display.set_mode(user.size, pygame.FULLSCREEN, pygame.OPENGL, vsync=1)
+    pygame.display.set_caption('Space_physics')
     clock = pygame.time.Clock()
     font = pygame.font.Font(None, 30)
     G = 100
     speed = 100
-    dt = (1/user.fps) * speed
+    dt = (1/user.fps) * speed # шаг времени для объектов
 
     space_objects = []
     aStar = star(300, 300)
@@ -123,12 +126,17 @@ if __name__ == '__main__':
                 if event.key == K_ESCAPE:
                     running = False
             if event.type == MOUSEBUTTONDOWN:
-                if event.button == 4: #вперед
-                    zoom += 0.2
-                elif event.button == 5: #назад
-                    zoom -= 0.2
+                if event.button == 4: # вперед
+                    zoom += 0.1
+                    if movement_speed > 6:
+                        movement_speed -= 2
+                elif event.button == 5: # назад
+                    zoom -= 0.1
+                    if zoom <= 0.1:
+                        zoom = 0.1
+                    movement_speed += 2
                 elif event.button == 1:
-                    aStar = star((event.pos[0] - movement[0]) / zoom, (event.pos[1] - movement[1]) / zoom)
+                    aStar = star(int(event.pos[0] / zoom - movement[0] - 16), int(event.pos[1] / zoom - movement[1] - 16))
                     space_objects.append(aStar)
 
             if event.type == KEYUP:
@@ -147,19 +155,19 @@ if __name__ == '__main__':
         if moving_left:
             movement[0] += movement_speed
         if moving_right:
-            movement[0] -= movement_speed
-        try:   
-            display = pygame.Surface((int(user.size[0] / zoom), int(user.size[1] / zoom)))
-        except:
-            zoom += 0.1
+            movement[0] -= movement_speed  
+        display = pygame.Surface((user.size[0], user.size[1]))
+        display.fill((0, 0, 0))
         step()
         for i in range(len(space_objects)):
-            display.blit(star_img, (space_objects[i].x-16, space_objects[i].y-16))
+                display.blit(pygame.transform.scale(star_img, (int(star_img.get_width() * zoom), \
+                    int(star_img.get_height() * zoom))), (int((space_objects[i].x + movement[0]) * zoom - 16), \
+                    int((space_objects[i].y + movement[1]) * zoom - 16)))
 
-        user.screen.blit(pygame.transform.scale(display,user.size), movement)
+        user.screen.blit(display, (0,0))
         fps_val()
         pygame.display.update()
         clock.tick(user.fps)
 
     pygame.quit()
-    exit('Exit -> 01')
+    exit('Exit')
