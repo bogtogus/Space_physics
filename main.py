@@ -1,11 +1,8 @@
 import pygame
-from time import time
-from time import sleep
+from time import time, sleep
 from pygame.locals import *
-from math import cos
-from math import sin
-from math import acos
-from math import asin
+from math import cos, sin, asin, pi, sqrt
+
 
 class settings:
     def __init__(self, fps=50, size=(1920, 1080), autosize=False):
@@ -23,10 +20,11 @@ pygame.draw.rect(user.screen, '#005ffe', pygame.Rect(480, 490, 960 * 0.1, 50))
 font = pygame.font.Font('data/Anonymous Pro B.ttf', 25)
 post_font = pygame.font.Font('data/Anonymous Pro B.ttf', 16)
 dwnld_text1 = font.render("'W', 'A', 'S', 'D' - движение | Колёсико мыши - масштаб | P - пауза", True, (200, 200, 200))
-dwnld_text2 = font.render("E - расширенный режим", True, (200, 200, 200))
+dwnld_text2 = font.render("E - расширенный режим | 0 - сброс", True, (200, 200, 200))
 user.screen.blit(dwnld_text1, (user.size[0] // 2 - dwnld_text1.get_rect().width // 2, 550))
 user.screen.blit(dwnld_text2, (user.size[0] // 2 - dwnld_text2.get_rect().width // 2, 580))
 pygame.display.update()
+
 
 class obj:
     def __init__(self, x, y, img, r, m, vx = 0, vy = 0):
@@ -37,20 +35,23 @@ class obj:
         self.img = img
         self.vx = 0
         self.vy = 0
-        self.switch = 0 # состояние столкновения
-    def draw(self, zoom: int, mode: bool):
+        self.switch = 1 # состояние столкновения (0)
+    def draw(self, zoom, mode: bool):
         if (self.vy != 0 or self.vx != 0) and mode:
             sin = self.vy / ((self.vy * self.vy + self.vx * self.vx) ** 0.5)
             cos = self.vx / ((self.vy * self.vy + self.vx * self.vx) ** 0.5)
-            pygame.draw.line(display, (200, 0, 0), [self.x, self.y], [self.x + 100 * cos, self.y + 100 * sin], 2)
-            display.blit(post_font.render("vx, vy: " + str(round(self.vx, 3)) + ', ' + str(round(self.vy, 3)), True, (200, 200, 200)), (self.x + 10 + self.r, self.y - 26 - self.r))
-            display.blit(post_font.render("m: " + str(self.m), True, (200, 200, 200)), (self.x + 10 +self.r, self.y - 10 - self.r))
+            x_coord = (self.x + movement[0] + 10 + self.r) * zoom
+            y_coord = (self.y + movement[1] - self.r) * zoom
+            pygame.draw.line(display, (200, 0, 0), [(self.x + movement[0]) * zoom, (self.y + movement[1]) * zoom], [(self.x + movement[0] + 100 * cos) * zoom, (self.y + movement[1] + 100 * sin) * zoom], 2)
+            display.blit(post_font.render("vx, vy: " + str(round(self.vx, 3)) + ', ' + str(round(self.vy, 3)), True, (200, 200, 200)), (x_coord, y_coord - 26))
+            display.blit(post_font.render("m: " + str(self.m), True, (200, 200, 200)), (x_coord, y_coord - 10))
+            display.blit(post_font.render("cond: " + str(self.switch), True, (200, 200, 200)), (x_coord, y_coord + 6))
         display.blit(pygame.transform.scale(self.img, (int(self.img.get_width() * zoom), \
             int(self.img.get_height() * zoom))), \
             # x:
-            (int((space_objects[i].x + movement[0] - self.r) * zoom), \
+            (int((self.x + movement[0] - self.r) * zoom), \
             # y:
-            int((space_objects[i].y + movement[1] - self.r) * zoom)))
+            int((self.y + movement[1] - self.r) * zoom)))
 
 
 def simulation(mass: list, name: str):
@@ -58,6 +59,8 @@ def simulation(mass: list, name: str):
         sim = doc.readlines()
         sim = list(map(lambda x: x.split(), sim))
         for i in range(len(sim)):
+            if len(sim[i]) != 5 and len(sim[i]) != 7:
+                continue
             aStar = obj(float(sim[i][0]), float(sim[i][1]), globals()[sim[i][2]], float(sim[i][3]), float(sim[i][4]))
             if len(sim[i]) > 5: #vx, vy
                 aStar.vx = float(sim[i][5])
@@ -65,20 +68,21 @@ def simulation(mass: list, name: str):
             mass.append(aStar)
         return mass
 
+
 cur_time = int(round(time() * 1000))
 cadrs = 0
 fps = 0
 def fps_val(): # значение кадров/c
     global cur_time, cadrs, fps
-    cadrs += 1
     if int(round(time() * 1000)) - cur_time > 1000:
         fps = cadrs
         cadrs = 0
         cur_time = int(round(time() * 1000))
-    data = str(fps) + ' fps, ' + str(len(space_objects)) + ' obj, zoom: ' + str(zoom) + ', ' + '[end]: ' + \
-        str((int((space_objects[-1].x + movement[0]) * zoom), int((space_objects[-1].y + movement[1]) * zoom))) + \
-        ', Real: ' + str((int(space_objects[-1].x), int(space_objects[-1].y)))
+    data = '{} fps, {} obj, zoom: {}, [end]: {}, Real: {}'.format(str(fps), str(len(space_objects)), str(zoom), \
+        str((int((space_objects[-1].x + movement[0]) * zoom), int((space_objects[-1].y + movement[1]) * zoom))), \
+        str((int(space_objects[-1].x), int(space_objects[-1].y))))
     user.screen.blit(font.render(data, True, (200, 200, 200)), (0, 0))
+    cadrs += 1
 
 
 def step(): # шаг
@@ -87,82 +91,57 @@ def step(): # шаг
         x_i = space_objects[i].x
         y_i = space_objects[i].y
         for j in range(len(space_objects)): # второй
-            if i == j: 
-                continue
+            if i == j: continue
             dx = space_objects[j].x - x_i
             dy = space_objects[j].y - y_i
             r = dx * dx + dy * dy # R^2
-
-            if r > (space_objects[j].r + r_i) * (space_objects[j].r + r_i):
-                if r < 0.1: 
-                    r = 0.1
+            r_j = space_objects[j].r
+            if r > (r_j + r_i) * (r_j + r_i):
                 a = G * space_objects[j].m / r
-                r = r ** 0.5 # R
+                r = sqrt(r) # R
+                if r < 0.1: r = 0.1
                 ax = a * dx / r # a * cos
                 ay = a * dy / r # a * sin
                 space_objects[i].vx += ax * dt
                 space_objects[i].vy += ay * dt
-                space_objects[i].switch = 1
-                #space_objects[j].switch = 1
             else:
                 if space_objects[i].switch and space_objects[j].switch:
-                    #print(round(space_objects[i].vx), round(space_objects[j].vx),'|', i, "->", j, '|', dx, dy)
-                    #print(space_objects[i].switch, space_objects[j].switch)
-                    #v_end2 = (m1 * (v1 - v2) + m1 * v1 + m2 * v2)/(m1 + m2)
-                    #v_end1 = v2 - v1 + v_end2
-                    r = r ** 0.5 # R
+                    r = sqrt(r)
                     v_x1 = space_objects[i].vx
                     v_y1 = space_objects[i].vy
-                    v1 = (v_x1 * v_x1 + v_y1 * v_y1) ** 0.5
+                    v1 = sqrt(v_x1 * v_x1 + v_y1 * v_y1)
                     m1 = space_objects[i].m
                     
                     v_x2 = space_objects[j].vx
-                    v_y2 =space_objects[j].vy
-                    v2 = (v_x2 * v_x2 + v_y2 * v_y2) ** 0.5
+                    v_y2 = space_objects[j].vy
+                    v2 = sqrt(v_x2 * v_x2 + v_y2 * v_y2)
                     m2 = space_objects[j].m
-                    
-                    if v1 != 0:
-                        F1 = acos(v_y1 / v1)
+                    if v1:
+                        F1 = asin(v_y1 / v1)
                     else:
-                        F1 = acos(0)
-                    if v2 != 0:
-                        F2 = acos(v_y2 / v2)
+                        F1 = asin(0)
+                    if v2:
+                        F2 = asin(v_y2 / v2)
                     else:
-                        F2 = acos(0)
-                    f = acos(dy / r)
-                    #v2 = (m1 * (v_x1 - v_x2) + m1 * v_x1 + m2 * v_x2) / (m1 + m2)
-                    #v1 = v_x2 - v_x1 + v2
-                    #space_objects[i].vx = v1 * (dy / r)
-                    #space_objects[j].vx = v2 * (dx / r)
-                    space_objects[i].vx = ((dx / r) * (v1 * cos(F1 - f) * (m1 - m2) + 2 * m2 * v2 * cos(F2 - f))) / (m1 + m2) - v1 * sin(F1 - f) * (dy / r)
-                    space_objects[i].vy = ((dy / r) * (v1 * cos(F1 - f) * (m1 - m2) + 2 * m2 * v2 * cos(F2 - f))) / (m1 + m2) - v1 * sin(F1 - f) * (dx / r)
+                        F2 = asin(0)
+                    f = asin(dy / r)
+                    space_objects[i].vx = ((v1 * cos(F1 - f) * (m1 - m2) + 2 * m2 * v2 * cos(F2 - f)) * cos(f)) \
+                        / (m1 + m2) + v1 * sin(F1 - f) * cos(f + pi / 2)
+                    space_objects[i].vy = ((v1 * cos(F1 - f) * (m1 - m2) + 2 * m2 * v2 * cos(F2 - f)) * sin(f)) \
+                        / (m1 + m2) + v1 * sin(F1 - f) * sin(f + pi / 2)
 
-                    space_objects[j].vx = ((dx / r) * (v2 * cos(F2 - f) * (m2 - m1) + 2 * m1 * v1 * cos(F1 - f))) / (m1 + m2) - v2 * sin(F2 - f) * (dy / r)
-                    space_objects[j].vy = ((dy / r) * (v2 * cos(F2 - f) * (m2 - m1) + 2 * m1 * v1 * cos(F1 - f))) / (m1 + m2) - v2 * sin(F2 - f) * (dx / r)
-                    #v2 = (m1 * (v_y1 - v_y2) + m1 * v_y1 + m2 * v_y2) / (m1 + m2)
-                    #v1 = v_y2 - v_y1 + v2
-                    #space_objects[i].vy = v1 * (-dx / r)
-                    #space_objects[j].vy = v2 * (dy / r)
-
-                    #print(round(space_objects[i].vx), round(space_objects[j].vx),'|', i, "->", j)
-                    #print(space_objects[i].vy, space_objects[j].vy, i, '\n')
-                    #ax = a * dx / space_objects[j].r
-                    #ay = (-1) * a * dy / space_objects[j].r
-                    #if (space_objects[j].vy > 0 and space_objects[i].vy < 0) or (space_objects[j].vy < 0 and space_objects[i].vy > 0):
-                    #    space_objects[i].vy = (-1) * space_objects[i].vy
-                    #    print(space_objects[i].vy, space_objects[j].vy, '\n')
-                    #
-                    #if (space_objects[j].vx > 0 and space_objects[i].vx < 0) or (space_objects[j].vx < 0 and space_objects[i].vx > 0):
-                    #    space_objects[i].vx = (-1) * space_objects[i].vx
+                    space_objects[j].vx = ((v2 * cos(F2 - f) * (m2 - m1) + 2 * m1 * v1 * cos(F1 - f)) * cos(f)) \
+                        / (m1 + m2) + v2 * sin(F2 - f) * cos(f + pi / 2)
+                    space_objects[j].vy = ((v2 * cos(F2 - f) * (m2 - m1) + 2 * m1 * v1 * cos(F1 - f)) * sin(f)) \
+                        / (m1 + m2) + v2 * sin(F2 - f) * sin(f + pi / 2)
                     space_objects[i].switch = 0
                     break
-                    #space_objects[j].switch = 0
-                    #if (space_objects[j].vy > 0 and space_objects[i].vy > 0)
-            #print(space_objects[i].switch, space_objects[j].switch, '|', i, "->", j)
-    # изменение координат
+        else:
+            space_objects[i].switch = 1
     for i in range(len(space_objects)):
         space_objects[i].x += space_objects[i].vx * dt
         space_objects[i].y += space_objects[i].vy * dt
+
 
 if __name__ == '__main__':
     pygame.draw.rect(user.screen, '#005ffe', pygame.Rect(480, 490, 960 * 0.25, 50))
@@ -189,7 +168,8 @@ if __name__ == '__main__':
     pygame.draw.rect(user.screen, '#005ffe', pygame.Rect(480, 490, 960 * 0.75, 50))
     pygame.display.update()
 
-    simulation(space_objects, '1m_1s')
+    simulation_name = '2mov_1stay'
+    simulation(space_objects, simulation_name)
     
     waiting = True
     koef = 1
@@ -236,10 +216,11 @@ if __name__ == '__main__':
                 if event.key == K_ESCAPE:
                     running = False
                 if event.key == K_e:
-                    if not(mode):
-                        mode = True
-                    else:
-                        mode = False
+                    if not(mode): mode = True
+                    else: mode = False
+                if event.key == K_0:
+                    space_objects = []
+                    simulation(space_objects, simulation_name)
                 if event.key == K_p:
                     while pause:
                         for event in pygame.event.get():
@@ -264,7 +245,7 @@ if __name__ == '__main__':
                         zoom -= 0.1
                         zoom = round(zoom, 1)
                 elif event.button == 1: # ЛКМ
-                    aStar = obj(int(event.pos[0] / zoom - movement[0]), int(event.pos[1] / zoom - movement[1]), star_img, 16, 1)
+                    aStar = obj(int(event.pos[0] / zoom - movement[0]), int(event.pos[1] / zoom - movement[1]), star_img, 16.0, 1.0)
                     space_objects.append(aStar)
 
             if event.type == KEYUP:
