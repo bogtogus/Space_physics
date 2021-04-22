@@ -16,14 +16,16 @@ class settings:
 pygame.init()
 user = settings(autosize=True)
 user.screen = pygame.display.set_mode(user.size, pygame.FULLSCREEN)
-pygame.draw.rect(user.screen, '#005ffe', pygame.Rect(480, 490, 960 * 0.1, 50))
-font = pygame.font.Font('data/Anonymous Pro B.ttf', 25)
-post_font = pygame.font.Font('data/Anonymous Pro B.ttf', 16)
+update_rect = pygame.Rect(user.size[0] // 4, user.size[1] // 2 - 50, user.size[0] // 2, user.size[1] // 4)
+pygame.draw.rect(user.screen, '#005ffe', pygame.Rect(user.size[0] // 4, user.size[1] // 2 \
+    - round(50 * (user.size[0]) / 1920), user.size[0] // 2 * 0.1, round(50 * (user.size[0]) / 1920)))
+font = pygame.font.Font('data/Anonymous Pro B.ttf', round(25 * (user.size[0]) / 1920))
+info_font = pygame.font.Font('data/Anonymous Pro B.ttf', round(16 * (user.size[0]) / 1920))
 dwnld_text1 = font.render("'W', 'A', 'S', 'D' - движение | Колёсико мыши - масштаб | P - пауза", True, (200, 200, 200))
 dwnld_text2 = font.render("E - расширенный режим | 0 - сброс", True, (200, 200, 200))
-user.screen.blit(dwnld_text1, (user.size[0] // 2 - dwnld_text1.get_rect().width // 2, 550))
-user.screen.blit(dwnld_text2, (user.size[0] // 2 - dwnld_text2.get_rect().width // 2, 580))
-pygame.display.update()
+user.screen.blit(dwnld_text1, (user.size[0] // 2 - dwnld_text1.get_rect().width // 2, user.size[1] // 2 + round(10 * (user.size[0]) / 1920)))
+user.screen.blit(dwnld_text2, (user.size[0] // 2 - dwnld_text2.get_rect().width // 2, user.size[1] // 2 + round(40 * (user.size[0]) / 1920)))
+pygame.display.update(update_rect)
 
 
 class obj:
@@ -42,10 +44,11 @@ class obj:
             cos = self.vx / ((self.vy * self.vy + self.vx * self.vx) ** 0.5)
             x_coord = (self.x + movement[0] + 10 + self.r) * zoom
             y_coord = (self.y + movement[1] - self.r) * zoom
-            pygame.draw.line(display, (200, 0, 0), [(self.x + movement[0]) * zoom, (self.y + movement[1]) * zoom], [(self.x + movement[0] + 100 * cos) * zoom, (self.y + movement[1] + 100 * sin) * zoom], 2)
-            display.blit(post_font.render("vx, vy: " + str(round(self.vx, 3)) + ', ' + str(round(self.vy, 3)), True, (200, 200, 200)), (x_coord, y_coord - 26))
-            display.blit(post_font.render("m: " + str(self.m), True, (200, 200, 200)), (x_coord, y_coord - 10))
-            display.blit(post_font.render("cond: " + str(self.switch), True, (200, 200, 200)), (x_coord, y_coord + 6))
+            pygame.draw.line(display, (200, 0, 0), [(self.x + movement[0]) * zoom, (self.y + movement[1]) * zoom], \
+                [(self.x + movement[0] + 100 * cos) * zoom, (self.y + movement[1] + 100 * sin) * zoom], 2)
+            display.blit(info_font.render("vx, vy: " + str(round(self.vx, 3)) + ', ' + str(round(self.vy, 3)), True, (200, 200, 200)), (x_coord, y_coord - 26))
+            display.blit(info_font.render("m: " + str(self.m), True, (200, 200, 200)), (x_coord, y_coord - 10))
+            display.blit(info_font.render("cond: " + str(self.switch), True, (200, 200, 200)), (x_coord, y_coord + 6))
         display.blit(pygame.transform.scale(self.img, (int(self.img.get_width() * zoom), \
             int(self.img.get_height() * zoom))), \
             # x:
@@ -92,6 +95,7 @@ def step(): # шаг
         y_i = space_objects[i].y
         for j in range(len(space_objects)): # второй
             if i == j: continue
+            if not(space_objects[i].switch and space_objects[j].switch): continue
             dx = space_objects[j].x - x_i
             dy = space_objects[j].y - y_i
             r = dx * dx + dy * dy # R^2
@@ -105,37 +109,36 @@ def step(): # шаг
                 space_objects[i].vx += ax * dt
                 space_objects[i].vy += ay * dt
             else:
-                if space_objects[i].switch and space_objects[j].switch:
-                    r = sqrt(r)
-                    v_x1 = space_objects[i].vx
-                    v_y1 = space_objects[i].vy
-                    v1 = sqrt(v_x1 * v_x1 + v_y1 * v_y1)
-                    m1 = space_objects[i].m
-                    
-                    v_x2 = space_objects[j].vx
-                    v_y2 = space_objects[j].vy
-                    v2 = sqrt(v_x2 * v_x2 + v_y2 * v_y2)
-                    m2 = space_objects[j].m
-                    if v1:
-                        F1 = asin(v_y1 / v1)
-                    else:
-                        F1 = asin(0)
-                    if v2:
-                        F2 = asin(v_y2 / v2)
-                    else:
-                        F2 = asin(0)
-                    f = asin(dy / r)
-                    space_objects[i].vx = ((v1 * cos(F1 - f) * (m1 - m2) + 2 * m2 * v2 * cos(F2 - f)) * cos(f)) \
-                        / (m1 + m2) + v1 * sin(F1 - f) * cos(f + pi / 2)
-                    space_objects[i].vy = ((v1 * cos(F1 - f) * (m1 - m2) + 2 * m2 * v2 * cos(F2 - f)) * sin(f)) \
-                        / (m1 + m2) + v1 * sin(F1 - f) * sin(f + pi / 2)
-
-                    space_objects[j].vx = ((v2 * cos(F2 - f) * (m2 - m1) + 2 * m1 * v1 * cos(F1 - f)) * cos(f)) \
-                        / (m1 + m2) + v2 * sin(F2 - f) * cos(f + pi / 2)
-                    space_objects[j].vy = ((v2 * cos(F2 - f) * (m2 - m1) + 2 * m1 * v1 * cos(F1 - f)) * sin(f)) \
-                        / (m1 + m2) + v2 * sin(F2 - f) * sin(f + pi / 2)
-                    space_objects[i].switch = 0
-                    break
+                r = sqrt(r)
+                if r < 0.01: r = 0.01
+                v_x1 = space_objects[i].vx
+                v_y1 = space_objects[i].vy
+                v1 = sqrt(v_x1 * v_x1 + v_y1 * v_y1)
+                m1 = space_objects[i].m
+                
+                v_x2 = space_objects[j].vx
+                v_y2 = space_objects[j].vy
+                v2 = sqrt(v_x2 * v_x2 + v_y2 * v_y2)
+                m2 = space_objects[j].m
+                if v1:
+                    F1 = asin(v_y1 / v1)
+                else:
+                    F1 = asin(0)
+                if v2:
+                    F2 = asin(v_y2 / v2)
+                else:
+                    F2 = asin(0)
+                f = asin(dy / r)
+                space_objects[i].vx = ((v1 * cos(F1 - f) * (m1 - m2) + 2 * m2 * v2 * cos(F2 - f)) * cos(f)) \
+                    / (m1 + m2) + v1 * sin(F1 - f) * cos(f + pi / 2)
+                space_objects[i].vy = ((v1 * cos(F1 - f) * (m1 - m2) + 2 * m2 * v2 * cos(F2 - f)) * sin(f)) \
+                    / (m1 + m2) + v1 * sin(F1 - f) * sin(f + pi / 2)
+                space_objects[j].vx = ((v2 * cos(F2 - f) * (m2 - m1) + 2 * m1 * v1 * cos(F1 - f)) * cos(f)) \
+                    / (m1 + m2) + v2 * sin(F2 - f) * cos(f + pi / 2)
+                space_objects[j].vy = ((v2 * cos(F2 - f) * (m2 - m1) + 2 * m1 * v1 * cos(F1 - f)) * sin(f)) \
+                    / (m1 + m2) + v2 * sin(F2 - f) * sin(f + pi / 2)
+                space_objects[i].switch = 0
+                break
         else:
             space_objects[i].switch = 1
     for i in range(len(space_objects)):
@@ -144,8 +147,9 @@ def step(): # шаг
 
 
 if __name__ == '__main__':
-    pygame.draw.rect(user.screen, '#005ffe', pygame.Rect(480, 490, 960 * 0.25, 50))
-    pygame.display.update()
+    pygame.draw.rect(user.screen, '#005ffe', pygame.Rect(user.size[0] // 4, user.size[1] // 2 \
+        - round(50 * (user.size[0]) / 1920), user.size[0] // 2 * 0.25, round(50 * (user.size[0]) / 1920)))
+    pygame.display.update(update_rect)
 
     zoom = 1
     moving_right, moving_left, moving_up, moving_down = False, False, False, False
@@ -155,18 +159,23 @@ if __name__ == '__main__':
     pygame.display.set_caption('Space_physics')
     clock = pygame.time.Clock()
     display = pygame.Surface((user.size[0], user.size[1]))
+    display.set_alpha(None)
     G = 1000
     speed = 1
     dt = (1 / user.fps) * speed # шаг времени для объектов
-    pygame.draw.rect(user.screen, '#005ffe', pygame.Rect(480, 490, 960 * 0.5, 50))
-    pygame.display.update()
 
-    star_img = pygame.image.load('data/star.png')
-    planet_img = pygame.image.load('data/plan.png')
-    hole_img = pygame.image.load('data/sun.png')
+    pygame.draw.rect(user.screen, '#005ffe', pygame.Rect(user.size[0] // 4, user.size[1] // 2 \
+        - round(50 * (user.size[0]) / 1920), user.size[0] // 2 * 0.5, round(50 * (user.size[0]) / 1920)))
+    pygame.display.update(update_rect)
+
+    star_img = pygame.image.load('data/star.png').convert()
+    planet_img = pygame.image.load('data/plan.png').convert()
+    hole_img = pygame.image.load('data/sun.png').convert()
     space_objects = []
-    pygame.draw.rect(user.screen, '#005ffe', pygame.Rect(480, 490, 960 * 0.75, 50))
-    pygame.display.update()
+
+    pygame.draw.rect(user.screen, '#005ffe', pygame.Rect(user.size[0] // 4, user.size[1] // 2 \
+        - round(50 * (user.size[0]) / 1920), user.size[0] // 2 * 0.75, round(50 * (user.size[0]) / 1920)))
+    pygame.display.update(update_rect)
 
     simulation_name = '2mov_1stay'
     simulation(space_objects, simulation_name)
@@ -175,12 +184,13 @@ if __name__ == '__main__':
     koef = 1
     switch = 1
     while waiting: # ожидание ответа пользователя
-        pygame.draw.rect(user.screen, '#005ffe', pygame.Rect(480, 490, 960, 50))
-        user.screen.blit(dwnld_text1, (user.size[0] // 2 - dwnld_text1.get_rect().width // 2, 550))
-        user.screen.blit(dwnld_text2, (user.size[0] // 2 - dwnld_text2.get_rect().width // 2, 580))
+        pygame.draw.rect(user.screen, '#005ffe', pygame.Rect(user.size[0] // 4, user.size[1] // 2 \
+            - round(50 * (user.size[0]) / 1920), user.size[0] // 2, round(50 * (user.size[0]) / 1920)))
+        user.screen.blit(dwnld_text1, (user.size[0] // 2 - dwnld_text1.get_rect().width // 2, user.size[1] // 2 + round(10 * (user.size[0]) / 1920)))
+        user.screen.blit(dwnld_text2, (user.size[0] // 2 - dwnld_text2.get_rect().width // 2, user.size[1] // 2 + round(40 * (user.size[0]) / 1920)))
         dwnld_text3 = font.render("Нажмите любую клавишу", True, (180 * koef, 180 * koef, 180 * koef))
-        user.screen.blit(dwnld_text3, (user.size[0] // 2 - dwnld_text3.get_rect().width // 2, 610))
-        pygame.display.update()
+        user.screen.blit(dwnld_text3, (user.size[0] // 2 - dwnld_text3.get_rect().width // 2, user.size[1] // 2 + round(70 * (user.size[0]) / 1920)))
+        pygame.display.update(update_rect)
         user.screen.fill((0, 0, 0))
         if switch and koef > 0.6:
             koef -= 0.1
@@ -193,6 +203,9 @@ if __name__ == '__main__':
         for event in pygame.event.get():
             if event.type == KEYDOWN or event.type == MOUSEBUTTONDOWN:
                 waiting = False
+                break
+            if event.type == pygame.QUIT:
+                running = False
                 break
         sleep(0.1)
     del(koef)
@@ -232,8 +245,13 @@ if __name__ == '__main__':
                                     running = False
                                     pause = False
                                     break
+                            if event.type == pygame.QUIT:
+                                running = False
+                                pause = False
+                                break
                         sleep(0.1)
                     pause = True
+            
             if event.type == MOUSEBUTTONDOWN:
                 if event.button == 4: # вперед
                     zoom += 0.1
@@ -257,6 +275,9 @@ if __name__ == '__main__':
                     moving_up = False
                 if event.key == K_s:
                     moving_down = False
+            
+            if event.type == pygame.QUIT:
+                running = False
         if moving_up:
             movement[1] += movement_speed / zoom
         if moving_down:
