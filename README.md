@@ -5,5 +5,5 @@ Active development is underway on the [test](https://github.com/bogtogus/Space_p
 Such physical phenomena as Newton's law of universal gravitation, the law of conservation of momentum, merging of objects will be taken into account. 
 In the future, it is possible to branch in the form of using the [pymunk](http://www.pymunk.org/en/latest/) module.
 
-English language will be added later.
+English is supported. At the moment, the screen resolution of 1920x1080 is stable.
 Write your suggestions or ideas, I will be grateful.
