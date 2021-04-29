@@ -15,13 +15,21 @@ class settings:
 
 
 pygame.init()
-user = settings(autosize=True)
+user = settings(autosize=False)
 user.screen = pygame.display.set_mode(user.size, pygame.FULLSCREEN)
 update_rect = pygame.Rect(user.size[0] // 4, user.size[1] // 2 - 50, user.size[0] // 2, user.size[1] // 4)
-coefficient = floor(user.size[0] / 1920)
-deafult_font = pygame.font.Font('data/Anonymous Pro B.ttf', 24 * coefficient)
-obj_info_font = pygame.font.Font('data/Anonymous Pro B.ttf', 16 * coefficient)
-sim_info_font = pygame.font.Font('data/Anonymous Pro B.ttf', 24)
+if user.size[0] / 1920 < user.size[1] / 1080:
+    coefficient = user.size[0] / 1920
+else:
+    coefficient = user.size[1] / 1080
+deafult_font = pygame.font.Font('data/Anonymous Pro B.ttf', round(24 * coefficient))
+obj_info_font = pygame.font.Font('data/Anonymous Pro B.ttf', round(16 * coefficient))
+f_s = 1
+sim_info_font = pygame.font.Font('data/Anonymous Pro B.ttf', f_s)
+while (560 * coefficient) / sim_info_font.render("a", True, '#c8c8c8').get_width() >= 43:
+    f_s += 1
+    sim_info_font = pygame.font.Font('data/Anonymous Pro B.ttf', f_s)
+del(f_s)
 #dwnld_text1 = font.render("'W', 'A', 'S', 'D' - движение | Колёсико мыши - масштаб | P - пауза", True, '#c8c8c8')
 #dwnld_text2 = font.render("E - расширенный режим | 0 - сброс", True, '#c8c8c8')
 
@@ -120,6 +128,8 @@ def init_content(): # creating all main dicts, lists and getting current languag
     sim_images = {}
     sim_info = {}
     menu_buttons = {}
+    sim_buttons = []
+    height = 2 * user.size[1] / 31
     db = sqlite3.connect('C:/Users/BOGDAN/Documents/GitHub/Space_physics/database.db')
     sql = db.cursor()
     for i in sql.execute("SELECT name FROM sqlite_master WHERE type ='table' AND name NOT LIKE 'sqlite_%'"): # languages
@@ -128,15 +138,15 @@ def init_content(): # creating all main dicts, lists and getting current languag
     curr_lang = sql.execute("SELECT language FROM settings WHERE user ='user01'").fetchone()[0]
     for i in sql.execute("SELECT class, name, text, color, font_color FROM {}".format(curr_lang)): # buttons
         if i[0] == 'button':
-            init_button = button(place=(0, 0), size=(400, 70), color=i[3], button_text=i[2], font_size=30, font_color=i[4])
+            init_button = button(place=(0, 0), size=(round(400 * coefficient), height), color=i[3], button_text=i[2], font_size=round(30 * coefficient), font_color=i[4])
             menu_buttons.update({i[1]: init_button})
-    menu_buttons['choose_button'].place = [user.size[0] // 2 - 200, user.size[1] // 2]
-    menu_buttons['settings_button'].place = [user.size[0] // 2 - 200, user.size[1] // 2 + 105]
-    menu_buttons['exit_button'].place = [user.size[0] // 2 - 200, user.size[1] // 2 + 210]
-    menu_buttons['lang_button'].place = [user.size[0] // 2 - 100, user.size[1] // 2]
-    menu_buttons['lang_table'].place = [user.size[0] // 2 - 350, user.size[1] // 2]
-    menu_buttons['lang_button'].size = (200, 70)
-    menu_buttons['lang_table'].size = (200, 70)
+    menu_buttons['choose_button'].place = [user.size[0] // 2 - menu_buttons['choose_button'].size[0] // 2, user.size[1] // 2]
+    menu_buttons['settings_button'].place = [user.size[0] // 2 - menu_buttons['settings_button'].size[0] // 2, user.size[1] // 2 + menu_buttons['settings_button'].size[1] * 1.5]
+    menu_buttons['exit_button'].place = [user.size[0] // 2 - menu_buttons['exit_button'].size[0] // 2, user.size[1] // 2 + menu_buttons['exit_button'].size[1] * 3]
+    menu_buttons['lang_button'].size = (round(200 * coefficient), height)
+    menu_buttons['lang_table'].size = (round(200 * coefficient), height)
+    menu_buttons['lang_button'].place = [user.size[0] // 2 - menu_buttons['lang_button'].size[0] // 2, user.size[1] // 2]
+    menu_buttons['lang_table'].place = [user.size[0] // 2 - 3.25 * menu_buttons['lang_button'].size[0] // 2, user.size[1] // 2]
     for b in menu_buttons.keys():
         menu_buttons[b].update()
     
@@ -144,10 +154,10 @@ def init_content(): # creating all main dicts, lists and getting current languag
         if not(item.startswith('.')) and not(os.path.isfile(os.path.join('simulations/', item))):
             simulations.append(item)
             try:
-                image = pygame.image.load('simulations/' + item + '/preview.png').convert()
+                image = pygame.transform.scale(pygame.image.load('simulations/' + item + '/preview.png').convert(), (round(540 * coefficient), round(540 * coefficient)))
                 sim_images.update({item: image})
             except Exception:
-                image = pygame.image.load('simulations/noimage.png').convert()
+                image = pygame.transform.scale(pygame.image.load('simulations/noimage.png').convert(), (round(540 * coefficient), round(540 * coefficient)))
                 sim_images.update({item: image})
             try:
                 text = sql.execute("SELECT class, name, text FROM '{}' WHERE class = 'info' and name = '{}'".format(curr_lang, item)).fetchone()[2]
@@ -157,11 +167,18 @@ def init_content(): # creating all main dicts, lists and getting current languag
             text = split_by_spaces(text, 43)
             text = list(text)
             sim_info.update({item: text})
-    sim_images.update({'noimage': pygame.image.load('simulations/noimage.png').convert()})
-    for i in range(1, 16):
+    sim_images.update({'noimage': pygame.transform.scale(pygame.image.load('simulations/noimage.png').convert(), (round(540 * coefficient), round(540 * coefficient)))})
+    for i in range(len(simulations)): # simulations' buttons
+        sim_buttons.append(button(place=(0, 0), size=(round(400 * coefficient), 2 * user.size[1] / 31), color='#545454', button_text=simulations[i], font_size=round(30 * coefficient), font_color='#dddddd'))
+        sim_buttons[i].place = [user.size[0] // 2 - sim_buttons[i].size[0] // 2, sim_buttons[i].size[1] / 2 + sim_buttons[i].size[1] * 1.5 * i]
+        sim_buttons[i].update()
+    menu_buttons['start_button'].size = (round(560 * coefficient), 2 * user.size[1] / 31)
+    menu_buttons['start_button'].place = [user.size[0] // 2 + sim_buttons[0].size[0] // 2 + sim_buttons[0].size[1] // 2, user.size[1] - sim_buttons[0].size[1] * 1.5]
+    menu_buttons['start_button'].update()
+    for i in range(1, 16): # animated background
         bkgr.append(pygame.image.load('data/backgr/backgr2_' + str(i) + '.png'))
     db.close()
-    return simulations, sim_images, sim_info, menu_buttons, bkgr, languages, curr_lang
+    return simulations, sim_images, sim_info, sim_buttons, menu_buttons, bkgr, languages, curr_lang
 
 
 def split_by_spaces(string, length):
@@ -320,16 +337,8 @@ def settings_window(langs, curr_lang, buttons, sim_i):
     return curr_lang, buttons, sim_i
 
 
-def choosing(s_button=None, sim_info=None):
+def choosing(start_button=None, sim_info=None, sim_buttons=None):
     user.screen.fill('#000000')
-    sim_buttons = []
-    for i in range(len(simulations)):
-        sim_buttons.append(button(place=(user.size[0] // 2 - 200, 35 + 105 * i), size=(400, 70), color='#545454', button_text=simulations[i], font_size=30, font_color='#dddddd'))
-        sim_buttons[i].draw()
-    start_button = s_button
-    start_button.size = (560, 70)
-    start_button.place = [user.size[0] // 2 + sim_buttons[0].size[0]//2 + 35, 980]
-    start_button.update()
     choose_cycle = True
     click = img = pre_selected = False
     k = 0 # counter for background
@@ -337,7 +346,7 @@ def choosing(s_button=None, sim_info=None):
     pre_selected = ''
     i_pre_selected = 0
     text = None
-    text_backgr = pygame.Rect(user.size[0] // 2 + sim_buttons[0].size[0]//2 + 35, 540 + 70, 560, 370)
+    text_backgr = pygame.Rect(user.size[0] // 2 + sim_buttons[0].size[0] // 2 + sim_buttons[0].size[1] / 2, sim_buttons[0].size[1] + sim_images['noimage'].get_height(), sim_images['noimage'].get_width() + 20 * coefficient, 5.25 * sim_buttons[0].size[1])
     st = 0 # starting point of text generation 
     en = 11 # ending point of text generation 
     while choose_cycle:
@@ -352,6 +361,7 @@ def choosing(s_button=None, sim_info=None):
                 break
         if start_button.body.collidepoint((mx, my)) and click and pre_selected: # if user clicked on start
             choose_cycle = False
+            sim_buttons[i_pre_selected].select = False
             selected_sim = pre_selected
             user.screen.fill('#000000')
             return choose_cycle, selected_sim
@@ -363,18 +373,18 @@ def choosing(s_button=None, sim_info=None):
                     break
                 elif event.button == 4: # mouse wheel forward
                     if - sim_buttons[0].size[0] // 2 < mx - user.size[0] // 2 < sim_buttons[0].size[0] // 2: # cursor in buttons' width area 
-                        if sim_buttons[0].place[1] < 35: # buttons' top limit
+                        if sim_buttons[0].place[1] < sim_buttons[0].size[1] // 2: # buttons' top limit
                             for i in range(len(sim_buttons)):
-                                sim_buttons[i].place[1] += 35
+                                sim_buttons[i].place[1] += sim_buttons[0].size[1] / 2
                                 sim_buttons[i].update()
                     elif text_backgr.collidepoint((mx, my)) and text and len(text) > 12 and st > 0: # scrolling the text up
                         st -= 1
                         en -= 1
                 elif event.button == 5: # backward
                     if - sim_buttons[0].size[0] // 2 < mx - user.size[0] // 2 < sim_buttons[0].size[0] // 2:
-                        if sim_buttons[-1].place[1] >= user.size[1] - sim_buttons[-1].size[1] // 2 - 35: # buttons' bottom limit
+                        if sim_buttons[-1].place[1] >= user.size[1] - sim_buttons[-1].size[1]: # buttons' bottom limit
                             for i in range(len(sim_buttons)):
-                                sim_buttons[i].place[1] -= 35
+                                sim_buttons[i].place[1] -= sim_buttons[0].size[1] / 2
                                 sim_buttons[i].update()
                     elif text_backgr.collidepoint((mx, my)) and text and len(text) > 12 and en < len(text): # scrolling the text down
                         st += 1
@@ -387,7 +397,7 @@ def choosing(s_button=None, sim_info=None):
                 print('Abrupt exit')
                 raise SystemExit(1)
         pygame.draw.rect(user.screen, '#c8c8c8', text_backgr, 1)
-        user.screen.blit(pygame.transform.scale(bkgr[k//5], (user.size[0], user.size[1])), (0, 0))
+        user.screen.blit(pygame.transform.scale(bkgr[k // 5], (user.size[0], user.size[1])), (0, 0))
         k += 1
         if k == 75: k = 0 # if k out of limit
         for i in range(len(sim_buttons)):
@@ -395,8 +405,8 @@ def choosing(s_button=None, sim_info=None):
         if pre_selected:
             if pre_selected != last_pre_selected: # avoidance of repeating
                 img = sim_images[pre_selected]
-                imgrect = img.get_rect(topleft=(user.size[0]//2 + 45 + sim_buttons[0].size[0]//2, 45))
-                img_backg = pygame.Rect(imgrect[0] - 10, imgrect[1] - 10, img.get_width() + 20, img.get_height() + 20)
+                imgrect = (user.size[0] // 2 + sim_buttons[0].size[1] / 2 + 10 * coefficient + sim_buttons[0].size[0] // 2, sim_buttons[0].size[1] / 2 + 10 * coefficient)
+                img_backg = pygame.Rect(imgrect[0] - 10 * coefficient, imgrect[1] - 10 * coefficient, img.get_width() + 20 * coefficient, img.get_height() + 20 * coefficient)
                 text = sim_info[pre_selected]
                 if len(text) > 12:
                     en = 12
@@ -407,10 +417,10 @@ def choosing(s_button=None, sim_info=None):
             user.screen.blit(img, imgrect)
             o = 0 # text wrapping
             for i in range(st, en):
-                if o < 360:
+                if o < 360 * coefficient:
                     print_text = sim_info_font.render(text[i], True, '#c8c8c8')
-                    user.screen.blit(print_text, (user.size[0] // 2 + sim_buttons[0].size[0]//2 + 35, 540 + 70 + o))
-                    o += 30
+                    user.screen.blit(print_text, (text_backgr.topleft[0], text_backgr.topleft[1] + o))
+                    o += 30 * coefficient
             start_button.draw()
         fps_val(False)
         pygame.display.update()
@@ -418,7 +428,7 @@ def choosing(s_button=None, sim_info=None):
     return True, None
 
 
-def main_menu(error=None, langs=None, lang=None, buttons=None, sim_i=None):
+def main_menu(error=None, langs=None, lang=None, m_buttons=None, sim_i=None, sim_b=None):
     user.screen.fill('#000000')
     menu_cycle = True
     click = False
@@ -433,20 +443,20 @@ def main_menu(error=None, langs=None, lang=None, buttons=None, sim_i=None):
         k += 1
         if k == 50:
             k = 0
-        buttons['choose_button'].draw()
-        buttons['settings_button'].draw()
-        buttons['exit_button'].draw()
+        m_buttons['choose_button'].draw()
+        m_buttons['settings_button'].draw()
+        m_buttons['exit_button'].draw()
         mx, my = pygame.mouse.get_pos()
-        if buttons['choose_button'].body.collidepoint((mx, my)) and click:
-            menu_cycle, selected_sim = choosing(menu_buttons['start_button'], sim_i)
+        if m_buttons['choose_button'].body.collidepoint((mx, my)) and click:
+            menu_cycle, selected_sim = choosing(m_buttons['start_button'], sim_i, sim_b)
             if menu_cycle:
                 user.screen.blit(pygame.transform.scale(bkgr[k//5], (user.size[0], user.size[1])), backgrrect)
-                buttons['choose_button'].draw()
-                buttons['settings_button'].draw()
-                buttons['exit_button'].draw()
-        elif buttons['settings_button'].body.collidepoint((mx, my)) and click:
-            lang, buttons, sim_i = settings_window(langs, lang, buttons, sim_i)
-        elif buttons['exit_button'].body.collidepoint((mx, my)) and click: # exit button
+                m_buttons['choose_button'].draw()
+                m_buttons['settings_button'].draw()
+                m_buttons['exit_button'].draw()
+        elif m_buttons['settings_button'].body.collidepoint((mx, my)) and click:
+            lang, m_buttons, sim_i = settings_window(langs, lang, m_buttons, sim_i)
+        elif m_buttons['exit_button'].body.collidepoint((mx, my)) and click: # exit button
             return None, lang, False
         click = False
         for event in pygame.event.get():
@@ -569,14 +579,14 @@ if __name__ == '__main__':
     planet_img = pygame.image.load('data/plan.png')
     hole_img = pygame.image.load('data/sun.png').convert()
     
-    simulations, sim_images, sim_info, menu_buttons, bkgr, languages, curr_lang = init_content()
+    simulations, sim_images, sim_info, sim_buttons, menu_buttons, bkgr, languages, curr_lang = init_content()
 
     simulation_name = ''
     space_objects = ['', '']
     main_loop = True
     error = None
     while main_loop:
-        simulation_name, curr_lang, main_loop = main_menu(error, languages, curr_lang, menu_buttons, sim_info)
+        simulation_name, curr_lang, main_loop = main_menu(error, languages, curr_lang, menu_buttons, sim_info, sim_buttons)
         if simulation_name:
             space_objects = simulation(space_objects, simulation_name)
             if space_objects[0] != 'error':
