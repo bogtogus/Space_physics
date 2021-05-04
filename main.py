@@ -566,8 +566,9 @@ def simulation_loop(space_objects, simulation_name, images, COEFFICIENT, dt, G):
     moving_right = moving_left = moving_up = moving_down = shift_pressed = False
     sim_cycle = True
     pause = mode = False
-    mx, my = (0, 0)
-    if len(space_objects) > 500:
+    mx = my = None
+    img = None
+    if len(space_objects) > 1000:
         pygame.draw.rect(user.screen, '#005ffe', (user.size[0] // 2 - 500 * COEFFICIENT, user.size[1] // 2 - user.size[1] / 31, 1000 * COEFFICIENT, user.size[1] / 31))
     pygame.display.update()
     while sim_cycle:
@@ -592,8 +593,11 @@ def simulation_loop(space_objects, simulation_name, images, COEFFICIENT, dt, G):
                     user.screen.fill('#000000')
                     space_objects = []
                     space_objects = init_simulation(space_objects, simulation_name, images['objects'], COEFFICIENT)
+                    [space_objects[i].update(zoom) for i in range(len(space_objects))]
                 if event.key == K_0:
                     movement = [0, 0]
+                    zoom = 1
+                    [space_objects[i].update(zoom) for i in range(len(space_objects))]
                 if event.key == K_p:
                     if not(pause):
                         pause = True
@@ -604,17 +608,17 @@ def simulation_loop(space_objects, simulation_name, images, COEFFICIENT, dt, G):
                 if event.button == 1: # LBM
                     mx, my = pygame.mouse.get_pos()
                     if not(shift_pressed):
+                        img = images['objects']['star_img']
                         aStar = obj(int(mx / zoom - movement[0]), int(my / zoom - movement[1]), images['objects']['star_img'], 16.0, 1.0)
+                        aStar.transformed_img = pygame.transform.scale(img, (int(img.get_width() * zoom), int(img.get_height() * zoom)))
                         space_objects.append(aStar)
                 if event.button == 4: # mouse wheel forward
-                    zoom += 0.1
-                    if zoom > 4:
-                        zoom += 0.1
+                    zoom += 0.1 + 0.1 * (zoom // 4)
                     zoom = round(zoom, 1)
                     [space_objects[i].update(zoom) for i in range(len(space_objects))]
                 elif event.button == 5: # backward
                     if zoom > 0.1:
-                        zoom -= 0.1
+                        zoom -= (0.1 + 0.1 * (zoom // 4))
                         zoom = round(zoom, 1)
                         [space_objects[i].update(zoom) for i in range(len(space_objects))]
             if event.type == KEYUP:
@@ -629,8 +633,10 @@ def simulation_loop(space_objects, simulation_name, images, COEFFICIENT, dt, G):
                 if event.key == K_LSHIFT:
                     shift_pressed = False
             if event.type == MOUSEBUTTONUP:
-                if event.button == 1 and shift_pressed and abs(pygame.mouse.get_pos()[0] - mx) > 0.1 and abs(pygame.mouse.get_pos()[1] - my) > 0.1:
+                if event.button == 1 and mx and shift_pressed:
+                    img = images['objects']['star_img']
                     aStar = obj(int(mx / zoom - movement[0]), int(my / zoom - movement[1]), images['objects']['star_img'], 16.0, 1.0, pygame.mouse.get_pos()[0] - mx, pygame.mouse.get_pos()[1] - my)
+                    aStar.transformed_img = pygame.transform.scale(img, (int(img.get_width() * zoom), int(img.get_height() * zoom)))
                     space_objects.append(aStar)
             if event.type == pygame.QUIT:
                 return False
