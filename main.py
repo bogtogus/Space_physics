@@ -1,7 +1,7 @@
 import pygame
 from pygame.locals import *
 from time import time, sleep, strftime, strptime, ctime
-from math import cos, sin, asin, pi, sqrt, degrees, atan2, radians, ceil, hypot
+from math import cos, sin, asin, pi, sqrt, degrees, atan2, radians, ceil, hypot, log
 import os, traceback, sqlite3
 
 
@@ -50,17 +50,29 @@ class obj:
         self.coll = False # collision state (True if collision happened)
     def update(self, zoom: float):
         if self.img == 'circle': return None
-        if self.img.get_width() * zoom > 3 and self.img.get_width() * zoom > 3:
+        if self.img.get_width() * zoom > 3 and self.img.get_height() * zoom > 3:
             self.transformed_img = pygame.transform.scale(self.img, (int(self.img.get_width() * zoom), int(self.img.get_height() * zoom)))
         else:
             self.transformed_img = pygame.transform.scale(self.img, (3, 3))
     def draw(self, zoom: float, movement: list, mode: bool, COEFFICIENT: float, DIST_COEFF: float):
+        pos_on_display = ((self.x * DIST_COEFF + movement[0]) * zoom, (self.y * DIST_COEFF + movement[1]) * zoom)
+        if pos_on_display[0] > user.size[0] or pos_on_display[0] < 0 or pos_on_display[1] > user.size[1] or pos_on_display[1] < 0: return None
+        if self.img == 'circle':
+            if self.r * DIST_COEFF * zoom > 2:
+                pygame.draw.circle(display_surf, '#777777', (int((self.x * DIST_COEFF + movement[0]) * zoom),
+                    int((self.y * DIST_COEFF + movement[1]) * zoom)), self.r * DIST_COEFF * zoom)
+            else:
+                pygame.draw.circle(display_surf, '#777777', (int((self.x * DIST_COEFF + movement[0]) * zoom),
+                    int((self.y * DIST_COEFF + movement[1]) * zoom)), 2)
+        else:
+            display_surf.blit(self.transformed_img, (int((self.x * DIST_COEFF + movement[0]) * zoom - self.transformed_img.get_width() // 2),
+                int((self.y * DIST_COEFF + movement[1]) * zoom - self.transformed_img.get_height() // 2)))
         if mode:
             if self.img == 'circle':
-                x_coord = (self.x * DIST_COEFF + movement[0]) * zoom + self.r * DIST_COEFF # coordinates of the text 
-                y_coord = (self.y * DIST_COEFF + movement[1]) * zoom - self.r * DIST_COEFF
+                x_coord = (self.x * DIST_COEFF + movement[0]) * zoom + self.r * DIST_COEFF * zoom # coordinates of the text 
+                y_coord = (self.y * DIST_COEFF + movement[1]) * zoom - self.r * DIST_COEFF * zoom
             else:
-                x_coord = (self.x * DIST_COEFF + movement[0]) * zoom + self.transformed_img.get_width() // 2 # coordinates of the text 
+                x_coord = (self.x * DIST_COEFF + movement[0]) * zoom + self.transformed_img.get_width() // 2
                 y_coord = (self.y * DIST_COEFF + movement[1]) * zoom - self.transformed_img.get_height() // 2
             if (self.vy != 0 or self.vx != 0):
                 sin_ = self.vy / (hypot(self.vy, self.vx))
@@ -74,17 +86,8 @@ class obj:
             display_surf.blit(obj_info_font.render("m: " + str(self.m) + ' kg', True, '#c8c8c8'), (x_coord, y_coord - 10 * COEFFICIENT))
             display_surf.blit(obj_info_font.render("coll: " + str(self.coll), True, '#c8c8c8'), (x_coord, y_coord + 6 * COEFFICIENT))
             display_surf.blit(obj_info_font.render("vx, vy: {}, {} km/s".format(round(self.vx / 1000, 3), round(self.vy / 1000, 3)), True, '#c8c8c8'), (x_coord, y_coord - 26 * COEFFICIENT))
-        if self.img == 'circle':
-            if self.r * DIST_COEFF * zoom > 2:
-                pygame.draw.circle(display_surf, '#777777', (int((self.x * DIST_COEFF + movement[0]) * zoom),
-                    int((self.y * DIST_COEFF + movement[1]) * zoom)), self.r * DIST_COEFF * zoom)
-            else:
-                pygame.draw.circle(display_surf, '#777777', (int((self.x * DIST_COEFF + movement[0]) * zoom),
-                    int((self.y * DIST_COEFF + movement[1]) * zoom)), 2)
-        else:
-            display_surf.blit(self.transformed_img, 
-                (int((self.x * DIST_COEFF + movement[0]) * zoom - self.transformed_img.get_width() // 2),
-                int((self.y * DIST_COEFF + movement[1]) * zoom - self.transformed_img.get_height() // 2)))
+    def __str__(self):
+        return "Coordinates: ({}, {}), velocity: ({}, {}), radius: {}, mass: {}".format(self.x, self.y, self.vx. self.vy, self.r, self.m)
 
 class button():
     def __init__(self, place=[0, 0], size=(0, 0), color='#c8c8c8', button_text='', font_size=16, font_color='#000000', path='data/Anonymous Pro B.ttf'):
@@ -297,31 +300,26 @@ def step(space_objects, pause=False, DT=1.0, G=1.0):
                 space_objects[i].vy += ay * DT
             else:
                 if r < 0.001: r = 0.001
-                if r < j_obj.r + i_obj.r:
+                if r < j_obj.r + i_obj.r: # moving an inbound object out of another
                     if i_obj.m <= j_obj.m:
-                        space_objects[i].x += (j_obj.vx * DT + (j_obj.r + i_obj.r) - r) * (-dx / r)
-                        space_objects[i].y += (j_obj.vy * DT + (j_obj.r + i_obj.r) - r) * (-dy / r)
+                        space_objects[i].x += (j_obj.vx * DT + (j_obj.r + i_obj.r) - r) * (- dx / r)
+                        space_objects[i].y += (j_obj.vy * DT + (j_obj.r + i_obj.r) - r) * (- dy / r)
                     else:
                         break
                     dx = j_obj.x - i_obj.x
                     dy = j_obj.y - i_obj.y
                     r = hypot(dx, dy)
                 if r < 0.001: r = 0.001
-                v_x1 = i_obj.vx
-                v_y1 = i_obj.vy
-                v1 = sqrt(v_x1 * v_x1 + v_y1 * v_y1)
+                v1 = hypot(i_obj.vx, i_obj.vy)
                 m1 = i_obj.m
-            
-                v_x2 = j_obj.vx
-                v_y2 = j_obj.vy
-                v2 = sqrt(v_x2 * v_x2 + v_y2 * v_y2)
+                v2 = hypot(j_obj.vx, j_obj.vy)
                 m2 = j_obj.m
                 if v1:
-                    F1 = asin(v_y1 / v1)
+                    F1 = asin(i_obj.vy / v1)
                 else:
                     F1 = asin(0)
                 if v2:
-                    F2 = asin(v_y2 / v2)
+                    F2 = asin(j_obj.vy / v2)
                 else:
                     F2 = asin(0)
                 f = asin(dy / r)
@@ -602,7 +600,10 @@ def settings_window(langs, menu_buttons, sim_content, text_dict, bkgr):
 def simulation_loop(space_objects, simulation_name, images, COEFFICIENT, DT, G, DIST_COEFF):
     zoom = 1.0
     movement_speed, movement = 4, [0, 0]
-    movement_o = [0, 0]
+    movement_obj = [0, 0] # object created to approach the center 
+    selected_obj_velocity = []
+    maximum = 100
+    velocity_add_timer = 0
     moving_right = moving_left = moving_up = moving_down = shift_pressed = False
     sim_cycle = True
     pause = mode = False
@@ -611,7 +612,7 @@ def simulation_loop(space_objects, simulation_name, images, COEFFICIENT, DT, G, 
     selected_obj = None
     if len(space_objects) > 1000:
         pygame.draw.rect(user.screen, '#005ffe', (user.size[0] // 2 - 500 * COEFFICIENT, user.size[1] // 2 - user.size[1] / 31, 1000 * COEFFICIENT, user.size[1] / 31))
-    pygame.display.update()
+        pygame.display.update()
     while sim_cycle:
         for event in pygame.event.get():
             if event.type == KEYDOWN:
@@ -627,8 +628,7 @@ def simulation_loop(space_objects, simulation_name, images, COEFFICIENT, DT, G, 
                     space_objects = []
                     return True
                 if event.key == K_e:
-                    if not(mode): mode = True
-                    else: mode = False
+                    mode = not(mode)
                 if event.key == K_LSHIFT:
                     shift_pressed = True
                 if event.key == K_r:
@@ -641,29 +641,26 @@ def simulation_loop(space_objects, simulation_name, images, COEFFICIENT, DT, G, 
                     zoom = 1
                     [space_objects[i].update(zoom) for i in range(len(space_objects))]
                 if event.key == K_p:
-                    if not(pause):
-                        pause = True
-                    else:
-                        pause = False
-            
+                    pause = not(pause)
             if event.type == MOUSEBUTTONDOWN:
                 if event.button == 1: # LBM
                     mx, my = pygame.mouse.get_pos()
                     if mode:
                         for o in range(len(space_objects)):
-                            pos_on_display = ((space_objects[o].x * DIST_COEFF + movement[0]) * zoom, (space_objects[o].y * DIST_COEFF + movement[1]) * zoom)
-                            r_on_display = space_objects[o].r * zoom * DIST_COEFF
+                            pos_on_display = ((space_objects[o].x * DIST_COEFF + movement[0]) * zoom, (space_objects[o].y * DIST_COEFF + movement[1]) * zoom) # position of object on the display
+                            r_on_display = space_objects[o].r * zoom * DIST_COEFF # radius of object on the display
                             if - r_on_display < mx - pos_on_display[0] < r_on_display and - r_on_display < my - pos_on_display[1] < r_on_display:
                                 if selected_obj == o:
-                                    movement_o[0] = -space_objects[selected_obj].x * DIST_COEFF
-                                    movement_o[1] = -space_objects[selected_obj].y * DIST_COEFF
+                                    movement_obj[0] = - space_objects[selected_obj].x * DIST_COEFF
+                                    movement_obj[1] = - space_objects[selected_obj].y * DIST_COEFF
                                     selected_obj = None
+                                    selected_obj_velocity = []
                                 else:
                                     selected_obj = o
                                 break
                     elif not(shift_pressed):
                         img = images['objects']['star_img']
-                        aStar = obj(int(mx / DIST_COEFF / zoom - movement[0] / DIST_COEFF), int(my / DIST_COEFF / zoom - movement[1] / DIST_COEFF), images['objects']['star_img'], 16.0, 1.0)
+                        aStar = obj(int(mx / DIST_COEFF / zoom - movement[0] / DIST_COEFF), int(my / DIST_COEFF / zoom - movement[1] / DIST_COEFF), images['objects']['star_img'], 16e+6, 1e+22)
                         aStar.transformed_img = pygame.transform.scale(img, (int(img.get_width() * zoom), int(img.get_height() * zoom)))
                         space_objects.append(aStar)
                 if event.button == 4: # mouse wheel forward
@@ -675,6 +672,12 @@ def simulation_loop(space_objects, simulation_name, images, COEFFICIENT, DT, G, 
                         zoom -= (0.005 + 0.05 * zoom)
                         zoom = round(zoom, 3)
                         [space_objects[i].update(zoom) for i in range(len(space_objects))]
+            if event.type == MOUSEBUTTONUP:
+                if event.button == 1 and mx and shift_pressed and not(mode):
+                    img = images['objects']['star_img']
+                    aStar = obj(int(mx / DIST_COEFF / zoom - movement[0] / DIST_COEFF), int(my / DIST_COEFF / zoom - movement[1] / DIST_COEFF), images['objects']['star_img'], 16e+6, 1e+22, (pygame.mouse.get_pos()[0] - mx) * 10, (pygame.mouse.get_pos()[1] - my) * 10)
+                    aStar.transformed_img = pygame.transform.scale(img, (int(img.get_width() * zoom), int(img.get_height() * zoom)))
+                    space_objects.append(aStar)
             if event.type == KEYUP:
                 if event.key == K_d:
                     moving_right = False
@@ -686,41 +689,64 @@ def simulation_loop(space_objects, simulation_name, images, COEFFICIENT, DT, G, 
                     moving_down = False
                 if event.key == K_LSHIFT:
                     shift_pressed = False
-            if event.type == MOUSEBUTTONUP:
-                if event.button == 1 and mx and shift_pressed:
-                    img = images['objects']['star_img']
-                    aStar = obj(int(mx / DIST_COEFF / zoom - movement[0] / DIST_COEFF), int(my / DIST_COEFF / zoom - movement[1] / DIST_COEFF), images['objects']['star_img'], 16.0, 1.0, pygame.mouse.get_pos()[0] - mx, pygame.mouse.get_pos()[1] - my)
-                    aStar.transformed_img = pygame.transform.scale(img, (int(img.get_width() * zoom), int(img.get_height() * zoom)))
-                    space_objects.append(aStar)
             if event.type == pygame.QUIT:
                 return False
         if moving_up:
-            movement_o[1] += movement_speed / zoom 
+            movement_obj[1] += movement_speed / zoom 
         if moving_down:
-            movement_o[1] -= movement_speed / zoom
+            movement_obj[1] -= movement_speed / zoom
         if moving_left:
-            movement_o[0] += movement_speed / zoom
+            movement_obj[0] += movement_speed / zoom
         if moving_right:
-            movement_o[0] -= movement_speed / zoom
+            movement_obj[0] -= movement_speed / zoom
         display_surf.fill('#000000')
         space_objects = step(space_objects, pause, DT, G)
         if selected_obj != None:
-            movement[0] = -space_objects[selected_obj].x * DIST_COEFF + (user.size[0] // 2) / zoom
-            movement[1] = -space_objects[selected_obj].y * DIST_COEFF + (user.size[1] // 2) / zoom
+            if not(pause):
+                movement[0] = - space_objects[selected_obj].x * DIST_COEFF + (user.size[0] // 2) / zoom
+                movement[1] = - space_objects[selected_obj].y * DIST_COEFF + (user.size[1] // 2) / zoom
+                if len(selected_obj_velocity) >= 200:
+                    selected_obj_velocity.pop(0)
+                    for t in range(len(selected_obj_velocity)):
+                        selected_obj_velocity[t][0] -= 1.5 * COEFFICIENT
+                if int(round(time() * 1000)) - velocity_add_timer > 50 or velocity_add_timer == 0:
+                    velocity_add_timer = int(round(time() * 1000))
+                    selected_obj_velocity.append([user.size[0] - 350 * COEFFICIENT + len(selected_obj_velocity) * 1.5 * COEFFICIENT, user.size[1] - 50 * COEFFICIENT - 200 * hypot(space_objects[selected_obj].vx, space_objects[selected_obj].vy) / maximum * COEFFICIENT, hypot(space_objects[selected_obj].vx, space_objects[selected_obj].vy)])
+                    if max(selected_obj_velocity, key=lambda x: x[2])[2] > 0 and max(selected_obj_velocity, key=lambda x: x[2])[2] != maximum:
+                        maximum = max(selected_obj_velocity, key=lambda x: x[2])[2]
+                        for t in range(len(selected_obj_velocity)):
+                            selected_obj_velocity[t][1] = user.size[1] - 50 * COEFFICIENT - 200 * selected_obj_velocity[t][2] / maximum * COEFFICIENT
         else:
-            movement[0] = movement_o[0] + (user.size[0] // 2) / zoom
-            movement[1] = movement_o[1] + (user.size[1] // 2) / zoom
+            movement[0] = movement_obj[0] + (user.size[0] // 2) / zoom
+            movement[1] = movement_obj[1] + (user.size[1] // 2) / zoom
         if len(space_objects) == 0: continue
         [space_objects[i].draw(zoom, movement, mode, COEFFICIENT, DIST_COEFF) for i in range(len(space_objects))] # drawing all objects
-        if mode:
-            pygame.draw.line(display_surf, '#555555', (30 * COEFFICIENT, user.size[1] - 30 * COEFFICIENT), (30 * COEFFICIENT + 199, user.size[1] - 30 * COEFFICIENT), 1)
-            pygame.draw.line(display_surf, '#555555', (30 * COEFFICIENT, user.size[1] - 20 * COEFFICIENT), (30 * COEFFICIENT, user.size[1] - 40 * COEFFICIENT), 1)
-            pygame.draw.line(display_surf, '#555555', (30 * COEFFICIENT + 99, user.size[1] - 20 * COEFFICIENT), (30 * COEFFICIENT + 99, user.size[1] - 40 * COEFFICIENT), 1)
-            pygame.draw.line(display_surf, '#555555', (30 * COEFFICIENT + 199, user.size[1] - 20 * COEFFICIENT), (30 * COEFFICIENT + 199, user.size[1] - 40 * COEFFICIENT), 1)
-            display_surf.blit(obj_info_font.render("In 100px {} km.".format(round(10**5 / zoom, 3)), True, '#555555'), (30 * COEFFICIENT, user.size[1] - 60 * COEFFICIENT))
-            display_surf.blit(obj_info_font.render('(0, 0)', True, '#444444'), (movement[0]* zoom + 6 * COEFFICIENT, movement[1]* zoom - 24 * COEFFICIENT))
-            pygame.draw.circle(display_surf, '#444444', (movement[0] * zoom, movement[1] * zoom), 4)
         user.screen.blit(display_surf, (0, 0))
+        if mode: # scale line 
+            pygame.draw.line(user.screen, '#555555', (30 * COEFFICIENT, user.size[1] - 30 * COEFFICIENT), (30 * COEFFICIENT + 199, user.size[1] - 30 * COEFFICIENT), 1)
+            pygame.draw.line(user.screen, '#555555', (30 * COEFFICIENT, user.size[1] - 20 * COEFFICIENT), (30 * COEFFICIENT, user.size[1] - 40 * COEFFICIENT), 1)
+            pygame.draw.line(user.screen, '#555555', (30 * COEFFICIENT + 99, user.size[1] - 20 * COEFFICIENT), (30 * COEFFICIENT + 99, user.size[1] - 40 * COEFFICIENT), 1)
+            pygame.draw.line(user.screen, '#555555', (30 * COEFFICIENT + 199, user.size[1] - 20 * COEFFICIENT), (30 * COEFFICIENT + 199, user.size[1] - 40 * COEFFICIENT), 1)
+            user.screen.blit(obj_info_font.render("In 100px {} km.".format(round(10**5 / zoom, 3)), True, '#555555'), (30 * COEFFICIENT, user.size[1] - 60 * COEFFICIENT))
+            user.screen.blit(obj_info_font.render('(0, 0)', True, '#444444'), (movement[0]* zoom + 6 * COEFFICIENT, movement[1]* zoom - 24 * COEFFICIENT))
+            pygame.draw.circle(user.screen, '#444444', (movement[0] * zoom, movement[1] * zoom), 4)
+            if selected_obj != None and len(selected_obj_velocity) > 2:
+                pygame.draw.aalines(user.screen, '#c80000', False, [i[:2] for i in selected_obj_velocity], 2)
+                pygame.draw.line(user.screen, '#666666', (user.size[0] - 350 * COEFFICIENT, user.size[1] - 50 * COEFFICIENT), (user.size[0] - 350 * COEFFICIENT, user.size[1] - 250 * COEFFICIENT), 1)
+                pygame.draw.line(user.screen, '#555555', (user.size[0] - 350 * COEFFICIENT, user.size[1] - 250 * COEFFICIENT), (user.size[0] - 355 * COEFFICIENT, user.size[1] - 250 * COEFFICIENT), 1)
+                pygame.draw.line(user.screen, '#555555', (user.size[0] - 350 * COEFFICIENT, user.size[1] - 225 * COEFFICIENT), (user.size[0] - 355 * COEFFICIENT, user.size[1] - 225 * COEFFICIENT), 1)
+                pygame.draw.line(user.screen, '#555555', (user.size[0] - 350 * COEFFICIENT, user.size[1] - 200 * COEFFICIENT), (user.size[0] - 355 * COEFFICIENT, user.size[1] - 200 * COEFFICIENT), 1)
+                pygame.draw.line(user.screen, '#555555', (user.size[0] - 350 * COEFFICIENT, user.size[1] - 175 * COEFFICIENT), (user.size[0] - 355 * COEFFICIENT, user.size[1] - 175 * COEFFICIENT), 1)
+                pygame.draw.line(user.screen, '#555555', (user.size[0] - 350 * COEFFICIENT, user.size[1] - 150 * COEFFICIENT), (user.size[0] - 355 * COEFFICIENT, user.size[1] - 150 * COEFFICIENT), 1)
+                pygame.draw.line(user.screen, '#555555', (user.size[0] - 350 * COEFFICIENT, user.size[1] - 125 * COEFFICIENT), (user.size[0] - 355 * COEFFICIENT, user.size[1] - 125 * COEFFICIENT), 1)
+                pygame.draw.line(user.screen, '#555555', (user.size[0] - 350 * COEFFICIENT, user.size[1] - 100 * COEFFICIENT), (user.size[0] - 355 * COEFFICIENT, user.size[1] - 100 * COEFFICIENT), 1)
+                pygame.draw.line(user.screen, '#555555', (user.size[0] - 350 * COEFFICIENT, user.size[1] - 75 * COEFFICIENT), (user.size[0] - 355 * COEFFICIENT, user.size[1] - 75 * COEFFICIENT), 1)
+                pygame.draw.line(user.screen, '#555555', (user.size[0] - 350 * COEFFICIENT, user.size[1] - 50 * COEFFICIENT), (user.size[0] - 55 * COEFFICIENT, user.size[1] - 50 * COEFFICIENT), 1)
+                pygame.draw.line(user.screen, '#555555', (user.size[0] - 55 * COEFFICIENT, user.size[1] - 50 * COEFFICIENT), (user.size[0] - 55 * COEFFICIENT, user.size[1] - 45 * COEFFICIENT), 1)
+                velocity_graph_text = obj_info_font.render(str(round(maximum / 1000, 3)) + " km/s", True, '#c8c8c8')
+                user.screen.blit(velocity_graph_text, (user.size[0] - 370 * COEFFICIENT - velocity_graph_text.get_width(), user.size[1] - 250 * COEFFICIENT - velocity_graph_text.get_height() // 2))
+                velocity_graph_text = obj_info_font.render("10 sec", True, '#c8c8c8')
+                user.screen.blit(velocity_graph_text, (user.size[0] - 50 * COEFFICIENT - velocity_graph_text.get_width() // 2, user.size[1] - 35 * COEFFICIENT - velocity_graph_text.get_height() // 2))
         fps_val(True, zoom, movement, space_objects[-1], len(space_objects), DT, DIST_COEFF)
         pygame.display.update()
         clock.tick(user.fps)
@@ -729,9 +755,7 @@ def simulation_loop(space_objects, simulation_name, images, COEFFICIENT, DT, G, 
 if __name__ == '__main__':
     display_surf = pygame.Surface((user.size[0], user.size[1]))
     display_surf.set_alpha(None)
-    
     simulations_content, menu_buttons, images, languages, text_dict = init_content(COEFFICIENT)
-
     simulation_name = ''
     space_objects = ['', '']
     main_loop = True
