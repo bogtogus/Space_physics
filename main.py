@@ -1,7 +1,7 @@
 import pygame
 from pygame.locals import *
-from time import time, sleep, strftime, strptime, ctime
-from math import cos, sin, asin, pi, sqrt, degrees, atan2, radians, ceil, hypot, log
+from time import time, strftime, strptime, ctime, localtime
+from math import cos, sin, asin, pi, degrees, atan2, radians, ceil, hypot
 import os, traceback, sqlite3
 
 
@@ -23,13 +23,13 @@ if user.size[0] / 1920 < user.size[1] / 1080: # transformation ratio of all GUI 
 else:
     COEFFICIENT = user.size[1] / 1080
 DIST_COEFF = 1e-6 # distance coefficient transformates meters to megameters
-G = 6.67430e-11 # real value = 6.67430e-11. You will need to use decimal or waiting for updates to calculate that
-SPEED = 60*60*24 # simulation speed
+G = 6.67430e-11 # real value = 6.67430e-11. You will need to use decimal to calculate that accurately
+SPEED = 60 * 60 * 24 # simulation speed
 DT = (1 / user.fps) * SPEED # time step for objects
 deafult_font = pygame.font.Font('data/Anonymous Pro B.ttf', round(24 * COEFFICIENT))
 obj_info_font = pygame.font.Font('data/Anonymous Pro B.ttf', round(16 * COEFFICIENT))
 help_font = pygame.font.Font('data/Anonymous Pro B.ttf', round(30 * COEFFICIENT))
-f_s = 1 # font size
+f_s = 1 # informational font size
 sim_info_font = pygame.font.Font('data/Anonymous Pro B.ttf', f_s)
 while (560 * COEFFICIENT) / sim_info_font.render("a", True, '#c8c8c8').get_width() >= 43: # calculating necessary font size
     f_s += 1
@@ -49,14 +49,14 @@ class obj:
         self.transformed_img = img
         self.coll = False # collision state (True if collision happened)
     def update(self, zoom: float):
-        if self.img == 'circle': return None
+        if self.img == 'circle': return
         if self.img.get_width() * zoom > 3 and self.img.get_height() * zoom > 3:
             self.transformed_img = pygame.transform.scale(self.img, (int(self.img.get_width() * zoom), int(self.img.get_height() * zoom)))
         else:
             self.transformed_img = pygame.transform.scale(self.img, (3, 3))
     def draw(self, zoom: float, movement: list, mode: bool, COEFFICIENT: float, DIST_COEFF: float):
         pos_on_display = ((self.x * DIST_COEFF + movement[0]) * zoom, (self.y * DIST_COEFF + movement[1]) * zoom)
-        if pos_on_display[0] > user.size[0] or pos_on_display[0] < 0 or pos_on_display[1] > user.size[1] or pos_on_display[1] < 0: return None
+        if pos_on_display[0] > user.size[0] or pos_on_display[0] < 0 or pos_on_display[1] > user.size[1] or pos_on_display[1] < 0: return
         if self.img == 'circle':
             if self.r * DIST_COEFF * zoom > 2:
                 pygame.draw.circle(display_surf, '#777777', (int((self.x * DIST_COEFF + movement[0]) * zoom),
@@ -100,6 +100,7 @@ class button():
         self.text = button_text
         self.font = pygame.font.Font(path, font_size)
         self.font_color = font_color
+        self.font_size = font_size
         self.print_text = self.font.render(self.text, True, self.font_color)
         text_x = self.place[0] + self.size[0] // 2 - self.print_text.get_width() // 2
         text_y = self.place[1] + self.size[1] // 2 - self.print_text.get_height() // 2
@@ -117,10 +118,15 @@ class button():
             pygame.draw.rect(user.screen, self.select_color, self.body)
             pygame.draw.rect(user.screen, '#c8c8c8', self.body, 1)
         user.screen.blit(self.print_text, self.text_pos)
+    def copy(self):
+        copied_button = button()
+        for key, value in self.__dict__.items():
+            copied_button.__dict__[key] = value.copy() if type(value) in [list, dict, set] else value
+        return copied_button
 
 """ ========= Technical functions ========= """
 
-def init_simulation(obj_list: list, name: str, images: dict, COEFFICIENT=1): 
+def init_simulation(obj_list: list, name: str, images: dict, user, COEFFICIENT=1): 
     """Creates a list of simulanion's objects."""
     try:
         with open('simulations/' + name + '/sim.data', 'r') as doc:
@@ -135,8 +141,8 @@ def init_simulation(obj_list: list, name: str, images: dict, COEFFICIENT=1):
             if len(sim[i]) != 5 and len(sim[i]) != 7: continue
             try: img = images[sim[i][2]]
             except: img = 'circle'
-            aStar = obj(float(sim[i][0]), float(sim[i][1]), img, float(sim[i][3]), float(sim[i][4]))
-            if len(sim[i]) > 5: #vx, vy
+            aStar = obj(float(sim[i][0]), float(sim[i][1]), img, float(sim[i][3]), float(sim[i][4])) # x, y, image, radius, mass
+            if len(sim[i]) > 5: # vx, vy
                 aStar.vx = float(sim[i][5])
                 aStar.vy = float(sim[i][6])
             obj_list.append(aStar)
@@ -154,7 +160,7 @@ def init_simulation(obj_list: list, name: str, images: dict, COEFFICIENT=1):
     return obj_list
 
 
-def init_content(COEFFICIENT=1): 
+def init_content(user, COEFFICIENT=1): 
     """Creates all main dicts, lists and getting current language."""
     simulations_content = {}
     languages = {"languages": [], "curr_lang": None}
@@ -183,9 +189,12 @@ def init_content(COEFFICIENT=1):
     menu_buttons['lang_table'].size = (round(200 * COEFFICIENT), height)
     menu_buttons['lang_button'].place = [user.size[0] // 2 - menu_buttons['lang_button'].size[0] // 2, user.size[1] // 2]
     menu_buttons['lang_table'].place = [user.size[0] // 2 - 3.25 * menu_buttons['lang_button'].size[0] // 2, user.size[1] // 2]
+    menu_buttons['ingame_settings_button'].place = [user.size[0] // 2 - menu_buttons['ingame_settings_button'].size[0] // 2, user.size[1] // 2 + menu_buttons['ingame_settings_button'].size[1] * 3]
+    menu_buttons['ingame_help_button'].place = [user.size[0] // 2 - menu_buttons['ingame_help_button'].size[0] // 2, user.size[1] // 2 + menu_buttons['ingame_help_button'].size[1] * 4.5]
+    menu_buttons['ingame_exit_button'].place = [user.size[0] // 2 - menu_buttons['ingame_exit_button'].size[0] // 2, user.size[1] // 2 + menu_buttons['ingame_exit_button'].size[1] * 6]
     for b in menu_buttons.keys():
         menu_buttons[b].update()
-    i = 0
+    counter = 0
     for item in os.listdir('simulations/'): # simulations's content
         if not(item.startswith('.')) and not(os.path.isfile(os.path.join('simulations/', item))):
             try:
@@ -200,10 +209,10 @@ def init_content(COEFFICIENT=1):
             text = split_by_separator(text, 43)
             text = list(text)
             sim_button = button(place=[0, 0], size=(round(400 * COEFFICIENT), height), color='#545454', button_text=item, font_size=round(30 * COEFFICIENT), font_color='#dddddd')
-            sim_button.place = [user.size[0] // 2 - sim_button.size[0] // 2, sim_button.size[1] / 2 + sim_button.size[1] * 1.5 * i]
+            sim_button.place = [user.size[0] // 2 - sim_button.size[0] // 2, sim_button.size[1] / 2 + sim_button.size[1] * 1.5 * counter]
             sim_button.update()
             simulations_content.update({item: [item, sim_button, image, text]})
-            i += 1
+            counter += 1
     menu_buttons['start_button'].size = (round(560 * COEFFICIENT), height)
     menu_buttons['start_button'].place = [user.size[0] // 2 + sim_button.size[0] // 2 + sim_button.size[1] // 2, user.size[1] - sim_button.size[1] * 1.5]
     menu_buttons['start_button'].update()
@@ -249,10 +258,11 @@ def split_by_separator(string, length, separator=' '):
     return output
 
 
-def draw_text(text='empty', path='data/Anonymous Pro B.ttf', size=16, color='#c8c8c8', place=[0, 0], alignment=None): 
+def draw_text(text='', path='data/Anonymous Pro B.ttf', size=16, color='#c8c8c8', place=[0, 0], alignment=None): 
     """This function draws text on the screen. Works slowly with multiple calls."""
     font = pygame.font.Font(path, size)
     print_text = font.render(text, True, color)
+    place = [0, 0]
     if alignment == 'center':
         place[0] = place[0] - print_text.get_width() // 2
         place[1] = place[1] - print_text.get_height() // 2
@@ -262,7 +272,7 @@ def draw_text(text='empty', path='data/Anonymous Pro B.ttf', size=16, color='#c8
 cur_time = int(round(time() * 1000))
 cadrs = 0
 fps = 0
-def fps_val(game=True, zoom_=1, movement=[0, 0], space_object=None, obj_amount=0, DT=1, DIST_COEFF=1):
+def fps_val(game=True, zoom_=1, movement=[0, 0], space_object=None, obj_amount=0, simulation_time=0, DIST_COEFF=1):
     """Returns value of fraps per second and other stuff."""
     global cur_time, cadrs, fps
     if int(round(time() * 1000)) - cur_time > 1000:
@@ -272,14 +282,17 @@ def fps_val(game=True, zoom_=1, movement=[0, 0], space_object=None, obj_amount=0
     if game:
         if space_object:
             x, y = (space_object.x, space_object.y)
-            data = '{} fps, {} obj, zoom: {}, [last]: {} px, Real: {} m*10^6'.format(fps, obj_amount, zoom_,
+            data = '{} fps, {} obj, zoom: {}, [last object position]: {} px, Real: {} m*10^6'.format(fps, obj_amount, zoom_,
             (int((x * DIST_COEFF + movement[0]) * zoom_), int((y * DIST_COEFF + movement[1]) * zoom_)),
             (int(x * DIST_COEFF), int(y * DIST_COEFF)))
         else:
             data = '{} fps, {} obj, zoom: {}'.format(fps, 0, zoom_)
+        data = deafult_font.render(data, True, '#c8c8c8')
+        user.screen.blit(deafult_font.render(str(strftime('%x %X', localtime(simulation_time))), True, '#c8c8c8'), (0, 1.5 * data.get_height()))
     else:
         data = str(fps) + ' fps'
-    user.screen.blit(deafult_font.render(data, True, '#c8c8c8'), (0, 0))
+        data = deafult_font.render(data, True, '#c8c8c8')
+    user.screen.blit(data, (0, 0))
     cadrs += 1
 
 
@@ -345,7 +358,7 @@ def step(space_objects, pause=False, DT=1.0, G=1.0):
 
 """ ========= GUI functions ========= """
 
-def main_menu(error=None, sim_content=None, langs=None, m_buttons=None, text_dict=None, images=None, COEFFICIENT=1):
+def main_menu(error=None, sim_content=None, langs=None, m_buttons=None, text_dict=None, images=None, user=None, COEFFICIENT=1):
     user.screen.fill('#000000')
     bkgr = images['background']
     menu_cycle = True
@@ -360,15 +373,15 @@ def main_menu(error=None, sim_content=None, langs=None, m_buttons=None, text_dic
     while menu_cycle:
         mx, my = pygame.mouse.get_pos()
         if m_buttons['choose_button'].body.collidepoint((mx, my)) and click:
-            menu_cycle, selected_sim = choosing_window(m_buttons['start_button'], sim_content, bkgr)
+            menu_cycle, selected_sim = choosing_window(m_buttons['start_button'], sim_content, bkgr, user, COEFFICIENT)
             if selected_sim:
                 return True, selected_sim, langs['curr_lang'] # main_loop, simulation_name, curr_lang
             elif not(menu_cycle):
                 break
         elif m_buttons['settings_button'].body.collidepoint((mx, my)) and click:
-            menu_cycle, langs['curr_lang'], m_buttons, sim_content, text_dict = settings_window(langs, m_buttons, sim_content, text_dict, bkgr)
+            menu_cycle, langs['curr_lang'], m_buttons, sim_content, text_dict = settings_window(langs, m_buttons, sim_content, text_dict, bkgr, user, COEFFICIENT)
         elif m_buttons['help_button'].body.collidepoint((mx, my)) and click:
-            menu_cycle = help_window(text_dict['help_text'], bkgr)
+            menu_cycle = help_window(text_dict['help_text'], bkgr, user, COEFFICIENT)
         elif m_buttons['exit_button'].body.collidepoint((mx, my)) and click: # exit button
             break
         click = False
@@ -385,7 +398,7 @@ def main_menu(error=None, sim_content=None, langs=None, m_buttons=None, text_dic
                 break
         user.screen.blit(bkgr[k // 5], backgrrect)
         k += 1
-        if k == 75: k = 0
+        if k == len(bkgr) * 5: k = 0
         m_buttons['choose_button'].draw()
         m_buttons['settings_button'].draw()
         m_buttons['help_button'].draw()
@@ -399,7 +412,7 @@ def main_menu(error=None, sim_content=None, langs=None, m_buttons=None, text_dic
     return False, None, langs['curr_lang'] # main_loop, simulation_name, curr_lang
 
 
-def choosing_window(start_button=None, sim_content=None, bkgr=None):
+def choosing_window(start_button=None, sim_content=None, bkgr=None, user=None, COEFFICIENT=1):
     user.screen.fill('#000000')
     choose_cycle = True
     click = img = pre_selected = False
@@ -483,7 +496,7 @@ def choosing_window(start_button=None, sim_content=None, bkgr=None):
         pygame.draw.rect(user.screen, '#c8c8c8', text_backgr, 1)
         user.screen.blit(bkgr[k // 5], (0, 0))
         k += 1
-        if k == 75: k = 0 # if k out of limit
+        if k == len(bkgr) * 5: k = 0 # if k out of limit
         if smooth_counter < 6 * scroll_counter: # smooth scrolling down
             for i in sim_content:
                 sim_content[i][1].place[1] -= sim_content[first_button][1].size[1] / 4
@@ -521,7 +534,7 @@ def choosing_window(start_button=None, sim_content=None, bkgr=None):
         clock.tick(user.fps)
 
 
-def help_window(help_text, bkgr):
+def help_window(help_text, bkgr, user, COEFFICIENT):
     user.screen.fill('#000000')
     help_cycle = True
     k = 0 # counter for background
@@ -537,12 +550,12 @@ def help_window(help_text, bkgr):
                     return True
             if event.type == pygame.QUIT:
                 return False
-        if len(bkgr) > 1:
+        if type(bkgr) == list:
             user.screen.blit(bkgr[k // 5], backgrrect)
             k += 1
-            if k == 75: k = 0
+            if k == len(bkgr) * 5: k = 0
         else:
-            user.screen.blit(bkgr[0], backgrrect)
+            user.screen.blit(bkgr, backgrrect)
             user.screen.blit(transparent_surf, (0, 0))
         for i in range(len(help_text)):
             print_text = help_font.render(help_text[i], True, '#c8c8c8')
@@ -553,7 +566,7 @@ def help_window(help_text, bkgr):
         clock.tick(user.fps)
 
 
-def settings_window(langs, menu_buttons, sim_content, text_dict, bkgr):
+def settings_window(langs, menu_buttons, sim_content, text_dict, bkgr, user, COEFFICIENT):
     user.screen.fill('#000000')
     settings_cycle = True
     click = False
@@ -599,12 +612,12 @@ def settings_window(langs, menu_buttons, sim_content, text_dict, bkgr):
                     return True, langs['curr_lang'], menu_buttons, sim_content, text_dict
             if event.type == pygame.QUIT:
                 return False, langs['curr_lang'], menu_buttons, sim_content, text_dict
-        if len(bkgr) > 1:
+        if type(bkgr) == list:
             user.screen.blit(bkgr[k // 5], backgrrect)
             k += 1
-            if k == 75: k = 0
+            if k == len(bkgr) * 5: k = 0
         else:
-            user.screen.blit(bkgr[0], backgrrect)
+            user.screen.blit(bkgr, backgrrect)
             user.screen.blit(transparent_surf, (0, 0))
         menu_buttons['lang_button'].draw()
         menu_buttons['lang_table'].draw()
@@ -613,7 +626,7 @@ def settings_window(langs, menu_buttons, sim_content, text_dict, bkgr):
         clock.tick(user.fps)
 
 
-def game_main_menu(langs, menu_buttons, sim_content, text_dict, images, bkgr):
+def ingame_main_menu(langs, menu_buttons, text_dict, sim_content, bkgr, user, COEFFICIENT):
     game_menu_cycle = True
     click = False
     k = 0.7
@@ -621,30 +634,15 @@ def game_main_menu(langs, menu_buttons, sim_content, text_dict, images, bkgr):
     transparent_surf = pygame.Surface(user.size)
     transparent_surf.set_alpha(196)
     transparent_surf.fill('#000000')
-    menu_buttons['settings_button'].place[1] = user.size[1] // 2 + menu_buttons['settings_button'].size[1] * 3
-    menu_buttons['help_button'].place[1] = user.size[1] // 2 + menu_buttons['help_button'].size[1] * 4.5
-    menu_buttons['exit_button'].place[1] = user.size[1] // 2 + menu_buttons['exit_button'].size[1] * 6
-    for b in menu_buttons.keys():
-        menu_buttons[b].update()
     while game_menu_cycle:
         mx, my = pygame.mouse.get_pos()
         if menu_buttons['continue_button'].body.collidepoint((mx, my)) and click:
-            menu_buttons['settings_button'].place[1] = user.size[1] // 2 + menu_buttons['settings_button'].size[1] * 1.5
-            menu_buttons['help_button'].place[1] = user.size[1] // 2 + menu_buttons['help_button'].size[1] * 3
-            menu_buttons['exit_button'].place[1] = user.size[1] // 2 + menu_buttons['exit_button'].size[1] * 4.5
-            for b in menu_buttons.keys():
-                menu_buttons[b].update()
             return True, langs, False # simulation's cycle, languages, exit from the program
-        elif menu_buttons['settings_button'].body.collidepoint((mx, my)) and click:
-            game_menu_cycle, langs['curr_lang'], menu_buttons, menu_buttons, text_dict = settings_window(langs, menu_buttons, menu_buttons, text_dict, bkgr)
-        elif menu_buttons['help_button'].body.collidepoint((mx, my)) and click:
-            game_menu_cycle = help_window(text_dict['help_text'], bkgr)
-        elif menu_buttons['exit_button'].body.collidepoint((mx, my)) and click: # exit button
-            menu_buttons['settings_button'].place[1] = user.size[1] // 2 + menu_buttons['settings_button'].size[1] * 1.5
-            menu_buttons['help_button'].place[1] = user.size[1] // 2 + menu_buttons['help_button'].size[1] * 3
-            menu_buttons['exit_button'].place[1] = user.size[1] // 2 + menu_buttons['exit_button'].size[1] * 4.5
-            for b in menu_buttons.keys():
-                menu_buttons[b].update()
+        elif menu_buttons['ingame_settings_button'].body.collidepoint((mx, my)) and click:
+            game_menu_cycle, langs['curr_lang'], menu_buttons, sim_content, text_dict = settings_window(langs, menu_buttons, sim_content, text_dict, bkgr, user, COEFFICIENT)
+        elif menu_buttons['ingame_help_button'].body.collidepoint((mx, my)) and click:
+            game_menu_cycle = help_window(text_dict['help_text'], bkgr, user, COEFFICIENT)
+        elif menu_buttons['ingame_exit_button'].body.collidepoint((mx, my)) and click: # exit button
             return False, langs, False
         click = False
         for event in pygame.event.get():
@@ -653,20 +651,10 @@ def game_main_menu(langs, menu_buttons, sim_content, text_dict, images, bkgr):
                     click = True
             if event.type == pygame.KEYDOWN:
                 if event.key == K_ESCAPE:
-                    menu_buttons['settings_button'].place[1] = user.size[1] // 2 + menu_buttons['settings_button'].size[1] * 1.5
-                    menu_buttons['help_button'].place[1] = user.size[1] // 2 + menu_buttons['help_button'].size[1] * 3
-                    menu_buttons['exit_button'].place[1] = user.size[1] // 2 + menu_buttons['exit_button'].size[1] * 4.5
-                    for b in menu_buttons.keys():
-                        menu_buttons[b].update()
                     return True, langs, False
             if event.type == pygame.QUIT:
-                menu_buttons['settings_button'].place[1] = user.size[1] // 2 + menu_buttons['settings_button'].size[1] * 1.5
-                menu_buttons['help_button'].place[1] = user.size[1] // 2 + menu_buttons['help_button'].size[1] * 3
-                menu_buttons['exit_button'].place[1] = user.size[1] // 2 + menu_buttons['exit_button'].size[1] * 4.5
-                for b in menu_buttons.keys():
-                    menu_buttons[b].update()
                 return False, langs, True
-        user.screen.blit(bkgr[0], (0, 0))
+        user.screen.blit(bkgr, (0, 0))
         user.screen.blit(transparent_surf, (0, 0))
         pygame.draw.rect(user.screen, (200 * k, 200 * k, 200 * k), (user.size[0] // 2 - 30 * COEFFICIENT, user.size[1] // 2 - 3 * user.size[1] / 31, 20 * COEFFICIENT, 2 * user.size[1] / 31))
         pygame.draw.rect(user.screen, (200 * k, 200 * k, 200 * k), (user.size[0] // 2 + 10 * COEFFICIENT, user.size[1] // 2 - 3 * user.size[1] / 31, 20 * COEFFICIENT, 2 * user.size[1] / 31))
@@ -679,21 +667,16 @@ def game_main_menu(langs, menu_buttons, sim_content, text_dict, images, bkgr):
             switch = False
         menu_buttons['continue_button'].draw()
         menu_buttons['save_button'].draw()
-        menu_buttons['settings_button'].draw()
-        menu_buttons['help_button'].draw()
-        menu_buttons['exit_button'].draw()
+        menu_buttons['ingame_settings_button'].draw()
+        menu_buttons['ingame_help_button'].draw()
+        menu_buttons['ingame_exit_button'].draw()
         fps_val(False)
         pygame.display.update()
         clock.tick(user.fps)
-    menu_buttons['settings_button'].place[1] = user.size[1] // 2 + menu_buttons['settings_button'].size[1] * 1.5
-    menu_buttons['help_button'].place[1] = user.size[1] // 2 + menu_buttons['help_button'].size[1] * 3
-    menu_buttons['exit_button'].place[1] = user.size[1] // 2 + menu_buttons['exit_button'].size[1] * 4.5
-    for b in menu_buttons.keys():
-        menu_buttons[b].update()
     return False, langs, True
 
 
-def mode_elements(selected_obj, selected_obj_velocity, maximum, zoom, COEFFICIENT, movement):
+def mode_elements(selected_obj, selected_obj_velocity, maximum, zoom, movement, user, COEFFICIENT):
     """This function draws all advanced mode graphic items."""
     pygame.draw.line(user.screen, '#555555', (30 * COEFFICIENT, user.size[1] - 30 * COEFFICIENT), (30 * COEFFICIENT + 199, user.size[1] - 30 * COEFFICIENT), 1) # scale line
     pygame.draw.line(user.screen, '#555555', (30 * COEFFICIENT, user.size[1] - 20 * COEFFICIENT), (30 * COEFFICIENT, user.size[1] - 40 * COEFFICIENT), 1)
@@ -721,7 +704,7 @@ def mode_elements(selected_obj, selected_obj_velocity, maximum, zoom, COEFFICIEN
         user.screen.blit(velocity_graph_text, (user.size[0] - 50 * COEFFICIENT - velocity_graph_text.get_width() // 2, user.size[1] - 20 * COEFFICIENT - velocity_graph_text.get_height() // 2))
 
 
-def simulation_loop(space_objects, simulation_name, images, menu_buttons, sim_content, text_dict, langs, COEFFICIENT, DT, G, DIST_COEFF):
+def simulation_loop(space_objects, simulation_name, images, menu_buttons, simulations_content, text_dict, langs, user, COEFFICIENT, DT, G, DIST_COEFF):
     zoom = 1.0
     movement_speed, movement = 4, [0, 0]
     movement_obj = [0, 0] # object created to approach the center 
@@ -734,6 +717,7 @@ def simulation_loop(space_objects, simulation_name, images, menu_buttons, sim_co
     mx = my = None
     img = None
     selected_obj = None
+    simulation_time = 0
     if len(space_objects) > 1000:
         pygame.draw.rect(user.screen, '#005ffe', (user.size[0] // 2 - 500 * COEFFICIENT, user.size[1] // 2 - user.size[1] / 31, 1000 * COEFFICIENT, user.size[1] / 31))
         pygame.display.update()
@@ -750,8 +734,8 @@ def simulation_loop(space_objects, simulation_name, images, menu_buttons, sim_co
                     moving_down = True
                 if event.key == K_ESCAPE:
                     screenshot_rect = pygame.Rect(0, 0, user.size[0], user.size[1])
-                    screenshot = [display_surf.subsurface(screenshot_rect)] # screenshot of last objects' posotion
-                    sim_cycle, langs, exit_from_prog = game_main_menu(langs, menu_buttons, sim_content, text_dict, images, screenshot)
+                    screenshot = display_surf.subsurface(screenshot_rect) # screenshot of last objects' posotion
+                    sim_cycle, langs, exit_from_prog = ingame_main_menu(langs, menu_buttons, text_dict, simulations_content, screenshot, user, COEFFICIENT)
                     if not(sim_cycle): 
                         space_objects = []
                         if exit_from_prog:
@@ -765,7 +749,7 @@ def simulation_loop(space_objects, simulation_name, images, menu_buttons, sim_co
                 if event.key == K_r:
                     user.screen.fill('#000000')
                     space_objects = []
-                    space_objects = init_simulation(space_objects, simulation_name, images['objects'], COEFFICIENT)
+                    space_objects = init_simulation(space_objects, simulation_name, images['objects'], user, COEFFICIENT)
                     [space_objects[i].update(zoom) for i in range(len(space_objects))]
                 if event.key == K_0:
                     movement = [0, 0]
@@ -853,11 +837,12 @@ def simulation_loop(space_objects, simulation_name, images, menu_buttons, sim_co
         [space_objects[i].draw(zoom, movement, mode, COEFFICIENT, DIST_COEFF) for i in range(len(space_objects))] # drawing all objects
         user.screen.blit(display_surf, (0, 0))
         if mode:
-            mode_elements(selected_obj, selected_obj_velocity, maximum, zoom, COEFFICIENT, movement)
+            mode_elements(selected_obj, selected_obj_velocity, maximum, zoom, movement, user, COEFFICIENT)
         if len(space_objects) > 0:
-            fps_val(True, zoom, movement, space_objects[-1], len(space_objects), DT, DIST_COEFF)
+            fps_val(True, zoom, movement, space_objects[-1], len(space_objects), simulation_time, DIST_COEFF)
         else:
-            fps_val(True, zoom, movement, None, 0, DT, DIST_COEFF)
+            fps_val(True, zoom, movement, None, 0, simulation_time, DIST_COEFF)
+        simulation_time += DT
         pygame.display.update()
         clock.tick(user.fps)
 
@@ -865,18 +850,18 @@ def simulation_loop(space_objects, simulation_name, images, menu_buttons, sim_co
 if __name__ == '__main__':
     display_surf = pygame.Surface((user.size[0], user.size[1]))
     display_surf.set_alpha(None)
-    simulations_content, menu_buttons, images, languages, text_dict = init_content(COEFFICIENT)
+    simulations_content, menu_buttons, images, languages, text_dict = init_content(user, COEFFICIENT)
     simulation_name = ''
     space_objects = ['', '']
     main_loop = True
     error = None
     clock = pygame.time.Clock()
     while main_loop:
-        main_loop, simulation_name, languages['curr_lang'] = main_menu(error, simulations_content, languages, menu_buttons, text_dict, images, COEFFICIENT)
+        main_loop, simulation_name, languages['curr_lang'] = main_menu(error, simulations_content, languages, menu_buttons, text_dict, images, user, COEFFICIENT)
         if simulation_name:
-            space_objects = init_simulation(space_objects, simulation_name, images['objects'], COEFFICIENT)
+            space_objects = init_simulation(space_objects, simulation_name, images['objects'], user, COEFFICIENT)
             if space_objects[0] != 'error':
-                main_loop, languages = simulation_loop(space_objects, simulation_name, images, menu_buttons, simulations_content, text_dict, languages, COEFFICIENT, DT, G, DIST_COEFF)
+                main_loop, languages = simulation_loop(space_objects, simulation_name, images, menu_buttons, simulations_content, text_dict, languages, user, COEFFICIENT, DT, G, DIST_COEFF)
                 simulation_name = ''
                 space_objects = ['', '']
                 error = None
