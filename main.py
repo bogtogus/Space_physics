@@ -24,7 +24,7 @@ else:
     COEFFICIENT = user.size[1] / 1080
 DIST_COEFF = 1e-6 # distance coefficient transformates meters to megameters
 G = 6.67430e-11 # real value = 6.67430e-11. You will need to use decimal to calculate that accurately
-SPEED = 60 * 60 * 24 # simulation speed
+SPEED = 60 * 60 * 24 # simulation speed in seconds
 DT = (1 / user.fps) * SPEED # time step for objects
 deafult_font = pygame.font.Font('data/Anonymous Pro B.ttf', round(24 * COEFFICIENT))
 obj_info_font = pygame.font.Font('data/Anonymous Pro B.ttf', round(16 * COEFFICIENT))
@@ -38,7 +38,7 @@ del(f_s)
 
 
 class obj:
-    def __init__(self, x, y, img, r, m, vx = 0.0, vy = 0.0):
+    def __init__(self, x, y, img, img_name, r, m, vx = 0.0, vy = 0.0):
         self.x = x # object class stores all physical quantities in the SI system
         self.y = y
         self.r = r
@@ -47,6 +47,7 @@ class obj:
         self.vy = vy
         self.img = img
         self.transformed_img = img
+        self.img_name = img_name
         self.coll = False # collision state (True if collision happened)
     def update(self, zoom: float):
         if self.img == 'circle': return
@@ -139,13 +140,16 @@ def init_simulation(obj_list: list, name: str, images: dict, user, COEFFICIENT=1
         obj_list = []
         for i in range(len(sim)):
             if len(sim[i]) != 5 and len(sim[i]) != 7: continue
-            try: img = images[sim[i][2]]
-            except: img = 'circle'
-            aStar = obj(float(sim[i][0]), float(sim[i][1]), img, float(sim[i][3]), float(sim[i][4])) # x, y, image, radius, mass
+            try: 
+                img = images[sim[i][2]]
+                img_name = sim[i][2]
+            except: 
+                img = img_name = 'circle'
+            anObject = obj(float(sim[i][0]), float(sim[i][1]), img, img_name, float(sim[i][3]), float(sim[i][4])) # x, y, image, image's name, radius, mass
             if len(sim[i]) > 5: # vx, vy
-                aStar.vx = float(sim[i][5])
-                aStar.vy = float(sim[i][6])
-            obj_list.append(aStar)
+                anObject.vx = float(sim[i][5])
+                anObject.vy = float(sim[i][6])
+            obj_list.append(anObject)
             if len(sim) > 1000 and i / len(sim) * 100 >= load:
                 load += 10
                 load_rect.width = load * 10 * COEFFICIENT
@@ -369,7 +373,7 @@ def main_menu(error=None, sim_content=None, langs=None, m_buttons=None, text_dic
     if error:
         error_text = deafult_font.render(error, True, '#ee1111')
         error_window = button(place=[35 * COEFFICIENT, user.size[1] - 75 * COEFFICIENT], size=(error_text.get_width() + 70 * COEFFICIENT, 50 * COEFFICIENT), color='#990000', button_text=error, font_size=round(24 * COEFFICIENT), font_color='#dddddd')
-        error_window_time = int(round(time() * 1000))
+        error_window_timer = int(round(time() * 1000))
     while menu_cycle:
         mx, my = pygame.mouse.get_pos()
         if m_buttons['choose_button'].body.collidepoint((mx, my)) and click:
@@ -404,7 +408,7 @@ def main_menu(error=None, sim_content=None, langs=None, m_buttons=None, text_dic
         m_buttons['help_button'].draw()
         m_buttons['exit_button'].draw()
         fps_val(False)
-        if error and int(round(time() * 1000)) - error_window_time < 5000:
+        if error and int(round(time() * 1000)) - error_window_timer < 5000:
             error_window.draw()
         user.screen.blit(images['logo'], ((user.size[0] - images['logo'].get_width()) // 2, (user.size[1] - images['logo'].get_height()) // 2 - m_buttons['choose_button'].size[1] * 2))
         pygame.display.update()
@@ -626,11 +630,12 @@ def settings_window(langs, menu_buttons, sim_content, text_dict, bkgr, user, COE
         clock.tick(user.fps)
 
 
-def ingame_main_menu(langs, menu_buttons, text_dict, sim_content, bkgr, user, COEFFICIENT):
+def ingame_main_menu(langs, menu_buttons, text_dict, sim_content, bkgr, user, sim_objects, COEFFICIENT):
     game_menu_cycle = True
     click = False
     k = 0.7
     switch = False
+    saved_window_timer = None
     transparent_surf = pygame.Surface(user.size)
     transparent_surf.set_alpha(196)
     transparent_surf.fill('#000000')
@@ -638,6 +643,20 @@ def ingame_main_menu(langs, menu_buttons, text_dict, sim_content, bkgr, user, CO
         mx, my = pygame.mouse.get_pos()
         if menu_buttons['continue_button'].body.collidepoint((mx, my)) and click:
             return True, langs, False # simulation's cycle, languages, exit from the program
+        elif menu_buttons['save_button'].body.collidepoint((mx, my)) and click:
+            name_of_saved = 'save-' + str(strftime('%x %X', strptime(ctime()))).replace('/', '-').replace(':', '-')
+            for item in os.listdir('simulations/'): # simulations's content
+                if not(item.startswith('.')) and not(os.path.isfile(os.path.join('simulations/', item))):
+                    if item == name_of_saved:
+                        break
+            else:
+                os.mkdir('simulations/' + name_of_saved)
+                saved_sim = open("simulations/" + name_of_saved + "/sim.data", "w+")
+                for obj in sim_objects:
+                    saved_sim.write('{} {} {} {} {} {} {}\n'.format(obj.x, obj.y, obj.img_name, obj.r, obj.m, obj.vx, obj.vy))
+                saved_text = deafult_font.render("Saved", True, '#ee1111')
+                saved_window = button(place=[35 * COEFFICIENT, user.size[1] - 75 * COEFFICIENT], size=(saved_text.get_width() + 70 * COEFFICIENT, 50 * COEFFICIENT), color='#009900', button_text="Saved.", font_size=round(24 * COEFFICIENT), font_color='#dddddd')
+                saved_window_timer = int(round(time() * 1000))
         elif menu_buttons['ingame_settings_button'].body.collidepoint((mx, my)) and click:
             game_menu_cycle, langs['curr_lang'], menu_buttons, sim_content, text_dict = settings_window(langs, menu_buttons, sim_content, text_dict, bkgr, user, COEFFICIENT)
         elif menu_buttons['ingame_help_button'].body.collidepoint((mx, my)) and click:
@@ -665,6 +684,8 @@ def ingame_main_menu(langs, menu_buttons, text_dict, sim_content, bkgr, user, CO
             switch = True
         else:
             switch = False
+        if saved_window_timer and int(round(time() * 1000)) - saved_window_timer < 3000:
+            saved_window.draw()
         menu_buttons['continue_button'].draw()
         menu_buttons['save_button'].draw()
         menu_buttons['ingame_settings_button'].draw()
@@ -715,7 +736,6 @@ def simulation_loop(space_objects, simulation_name, images, menu_buttons, simula
     sim_cycle = True
     pause = mode = False
     mx = my = None
-    img = None
     selected_obj = None
     simulation_time = 0
     if len(space_objects) > 1000:
@@ -735,7 +755,7 @@ def simulation_loop(space_objects, simulation_name, images, menu_buttons, simula
                 if event.key == K_ESCAPE:
                     screenshot_rect = pygame.Rect(0, 0, user.size[0], user.size[1])
                     screenshot = display_surf.subsurface(screenshot_rect) # screenshot of last objects' posotion
-                    sim_cycle, langs, exit_from_prog = ingame_main_menu(langs, menu_buttons, text_dict, simulations_content, screenshot, user, COEFFICIENT)
+                    sim_cycle, langs, exit_from_prog = ingame_main_menu(langs, menu_buttons, text_dict, simulations_content, screenshot, user, space_objects, COEFFICIENT)
                     if not(sim_cycle): 
                         space_objects = []
                         if exit_from_prog:
@@ -774,10 +794,10 @@ def simulation_loop(space_objects, simulation_name, images, menu_buttons, simula
                                     selected_obj = o
                                 break
                     elif not(shift_pressed):
-                        img = images['objects']['star_img']
-                        aStar = obj(int(mx / DIST_COEFF / zoom - movement[0] / DIST_COEFF), int(my / DIST_COEFF / zoom - movement[1] / DIST_COEFF), images['objects']['star_img'], 16e+6, 1e+22)
-                        aStar.transformed_img = pygame.transform.scale(img, (int(img.get_width() * zoom), int(img.get_height() * zoom)))
-                        space_objects.append(aStar)
+                        img_name = list(images['objects'].keys())[list(images['objects'].values()).index(images['objects']['star_img'])]
+                        anObject = obj(int(mx / DIST_COEFF / zoom - movement[0] / DIST_COEFF), int(my / DIST_COEFF / zoom - movement[1] / DIST_COEFF), images['objects']['star_img'], img_name, 16e+6, 1e+22)
+                        anObject.update(zoom)
+                        space_objects.append(anObject)
                 if event.button == 4: # mouse wheel forward
                     zoom += 0.005 + 0.05 * zoom
                     zoom = round(zoom, 3)
@@ -787,12 +807,13 @@ def simulation_loop(space_objects, simulation_name, images, menu_buttons, simula
                         zoom -= (0.005 + 0.05 * zoom)
                         zoom = round(zoom, 3)
                         [space_objects[i].update(zoom) for i in range(len(space_objects))]
+                        if zoom < 0.005: zoom = 0.005
             if event.type == MOUSEBUTTONUP:
                 if event.button == 1 and mx and shift_pressed and not(mode):
-                    img = images['objects']['star_img']
-                    aStar = obj(int(mx / DIST_COEFF / zoom - movement[0] / DIST_COEFF), int(my / DIST_COEFF / zoom - movement[1] / DIST_COEFF), images['objects']['star_img'], 16e+6, 1e+22, (pygame.mouse.get_pos()[0] - mx) * 10, (pygame.mouse.get_pos()[1] - my) * 10)
-                    aStar.transformed_img = pygame.transform.scale(img, (int(img.get_width() * zoom), int(img.get_height() * zoom)))
-                    space_objects.append(aStar)
+                    img_name = list(images['objects'].keys())[list(images['objects'].values()).index(images['objects']['star_img'])]
+                    anObject = obj(int(mx / DIST_COEFF / zoom - movement[0] / DIST_COEFF), int(my / DIST_COEFF / zoom - movement[1] / DIST_COEFF), images['objects']['star_img'], img_name, 16e+6, 1e+22, (pygame.mouse.get_pos()[0] - mx) * 10, (pygame.mouse.get_pos()[1] - my) * 10)
+                    anObject.update(zoom)
+                    space_objects.append(anObject)
             if event.type == KEYUP:
                 if event.key == K_d:
                     moving_right = False
@@ -842,7 +863,7 @@ def simulation_loop(space_objects, simulation_name, images, menu_buttons, simula
             fps_val(True, zoom, movement, space_objects[-1], len(space_objects), simulation_time, DIST_COEFF)
         else:
             fps_val(True, zoom, movement, None, 0, simulation_time, DIST_COEFF)
-        simulation_time += DT
+        if not(pause): simulation_time += DT
         pygame.display.update()
         clock.tick(user.fps)
 
