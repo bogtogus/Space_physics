@@ -11,9 +11,9 @@ Write your suggestions or ideas, I will be grateful.
 
 0. Install Python 3.7.7 or greater.
 
-1. Open your terminal in repository's folder using command "cd C:/Space_physics" for example.
+1. Open your terminal in repository's folder.
 
-2. Type these commands to install modules:
+2. Type these commands to install modules and run the code:
 ```no-highlight
 pip install -r requirements.txt
 python main.py
