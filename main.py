@@ -172,7 +172,7 @@ class button():
             (self.size[1] - self.print_text.get_height()) // 2
         self.text_pos = [text_x, text_y]
 
-    def draw(self) -> None:
+    def draw(self, user=None) -> None:
         if not(self.select):
             pygame.draw.rect(user.screen, self.color, self.body)
         else:
@@ -193,50 +193,49 @@ class button():
 
 
 def init_simulation(
-        obj_list=[],
         name=None,
         images={},
         user=None,
+        HOME_DIR=None,
         COEFFICIENT=1.0):
     """This function creates a list of simulanion's objects."""
     try:
-        with open(HOME_DIR + 'simulations/' + name + '/sim.data', 'r') as doc:
-            sim = doc.readlines()
-            sim = list(map(lambda x: x.split(), sim))
-        if len(sim) > 1000:  # loading bar display
+        obj_list = []
+        db = sqlite3.connect(HOME_DIR + 'simulations.db')
+        sql = db.cursor()
+        simulation = list(sql.execute(
+            "SELECT x, y, Image_name, Radius, Mass, Vx, Vy, id FROM s_{}".format(name)))
+        if len(simulation) > 1000:  # loading bar display
             load = 0
             load_rect = pygame.Rect(
                 user.size[0] // 2 - 500 * COEFFICIENT,
                 user.size[1] // 2 - user.size[1] / 31,
-                load * 10 * COEFFICIENT,
-                user.size[1] / 31)
+                load * 10 * COEFFICIENT, user.size[1] / 31)
             pygame.draw.rect(
-                user.screen,
-                '#666666',
-                (user.size[0] // 2 - 500 * COEFFICIENT, user.size[1] // 2 -
-                    user.size[1] / 31, 1000 * COEFFICIENT, user.size[1] / 31))
-        obj_list = []
-        for i in range(len(sim)):
-            if len(sim[i]) != 5 and len(sim[i]) != 7:
-                continue
+                user.screen, '#666666',
+                (user.size[0] // 2 - 500 * COEFFICIENT, 
+                 user.size[1] // 2 -user.size[1] / 31, 
+                 1000 * COEFFICIENT, user.size[1] / 31))
+        for ob in simulation:
             try:
-                img = images[sim[i][2]]
-                img_name = sim[i][2]
+                img = images[ob[2]]
+                img_name = ob[2]
             except Exception:
                 img = img_name = 'circle'
-            anObject = obj(float(sim[i][0]), float(sim[i][1]), 
+            anObject = obj(float(ob[0]), float(ob[1]), 
                            img, img_name, 
-                           float(sim[i][3]), float(sim[i][4]))
-            if len(sim[i]) > 5:  # vx, vy
-                anObject.vx = float(sim[i][5])
-                anObject.vy = float(sim[i][6])
+                           float(ob[3]), float(ob[4]))
+            if float(ob[5]) != 0 or float(ob[6]) != 0:  # vx, vy
+                anObject.vx = float(ob[5])
+                anObject.vy = float(ob[6])
             obj_list.append(anObject)
-            if len(sim) > 1000 and i / len(sim) * \
-                    100 >= load:  # loading bar display
+            if len(simulation) > 1000 and ob[7] / len(simulation) * 100 >= load:  
+                # loading bar display
                 load += 10
                 load_rect.width = load * 10 * COEFFICIENT
                 pygame.draw.rect(user.screen, '#ffffff', load_rect)
                 pygame.display.update()
+        db.close()
         if len(obj_list) == 0:
             obj_list = ['error', 'List is empty.']
     except Exception:
@@ -250,9 +249,16 @@ def init_simulation(
 
 
 def init_content(
-        user=None, 
+        user=None,
+        HOME_DIR=None,
         COEFFICIENT=1.0):
     """This function creates all main dicts, lists and gets current language."""
+    db = sqlite3.connect(HOME_DIR + 'simulations.db')
+    sql = db.cursor()
+    simulations_list = map(lambda x: x[0], sorted(list(
+        sql.execute(
+            "SELECT name FROM sqlite_master WHERE type ='table' AND name NOT LIKE 'sqlite_%'"))))
+    db.close()
     db = sqlite3.connect(HOME_DIR + 'database.db')
     sql = db.cursor()
     languages = []
@@ -306,52 +312,56 @@ def init_content(
         user.size[0] // 2 - width // 2, user.size[1] // 2 + height * 1.5]
     for b in menu_buttons.keys():
         menu_buttons[b].update()
+    help_text = sql.execute(
+        "SELECT text FROM '{}' WHERE class = 'text' and name = 'help_text'".format(
+            user.language)).fetchone()[0]
+    help_text = split_by_separator(help_text, 43)
+    help_text = list(help_text)
+    text_dict = {}
+    text_dict.update({'help_text': help_text})
     counter = 0
     simulations_content = {}
-    for item in os.listdir(HOME_DIR + 'simulations/'):  # simulations's content
-        if not(item.startswith('.')) and not(
-                os.path.isfile(os.path.join(
-                    HOME_DIR + 'simulations/', item))):
-            try:
-                image = pygame.transform.scale(
-                    pygame.image.load(
-                        HOME_DIR + 'simulations/' +
-                        item + '/preview.png').convert(),
-                    (round(540 * COEFFICIENT),
-                     round(540 * COEFFICIENT)))
-            except Exception:
-                image = pygame.transform.scale(
-                    pygame.image.load(
-                        HOME_DIR +
-                        'simulations/noimage.png').convert(),
-                    (round(540 * COEFFICIENT),
-                     round(540 * COEFFICIENT)))
-            try:
-                text = sql.execute(
-                    "SELECT text FROM '{}' WHERE class = 'info' and name = '{}'".format(
-                        user.language, item)).fetchone()[0]
-                text = text.replace('\n', ' ')
-            except Exception:
-                text = "Text doesn't exist."
-            text = split_by_separator(text, 43)
-            text = list(text)
-            sim_button = button(
-                place=[0, 0],
-                size=(width, height),
-                color='#545454',
-                button_text=item,
-                font_size=round(30 * COEFFICIENT),
-                font_color='#dddddd',
-                HOME_DIR=HOME_DIR)
-            sim_button.place = [
-                user.size[0] // 2 -
-                sim_button.size[0] // 2,
-                sim_button.size[1] / 2 +
-                sim_button.size[1] * 1.5 *
-                counter]
-            sim_button.update()
-            simulations_content.update({item: [item, sim_button, image, text]})
-            counter += 1
+    for item in simulations_list:  # simulations's content
+        try:
+            image = pygame.transform.scale(
+                pygame.image.load(
+                    HOME_DIR + 'data/simulations/' +
+                    item[2:] + '/preview.png').convert(),
+                (round(540 * COEFFICIENT),
+                 round(540 * COEFFICIENT)))
+        except Exception:
+            image = pygame.transform.scale(
+                pygame.image.load(
+                    HOME_DIR +
+                    'data/simulations/noimage.png').convert(),
+                (round(540 * COEFFICIENT),
+                 round(540 * COEFFICIENT)))
+        try:
+            text = sql.execute(
+                "SELECT text FROM '{}' WHERE class = 'info' and name = '{}'".format(
+                    user.language, item[2:])).fetchone()[0]
+            text = text.replace('\n', ' ')
+        except Exception:
+            text = "Text doesn't exist."
+        text = split_by_separator(text, 43)
+        text = list(text)
+        sim_button = button(
+            place=[0, 0],
+            size=(width, height),
+            color='#545454',
+            button_text=item[2:],
+            font_size=round(30 * COEFFICIENT),
+            font_color='#dddddd',
+            HOME_DIR=HOME_DIR)
+        sim_button.place = [
+            user.size[0] // 2 -
+            sim_button.size[0] // 2,
+            sim_button.size[1] / 2 +
+            sim_button.size[1] * 1.5 *
+            counter]
+        sim_button.update()
+        simulations_content.update({item: [item, sim_button, image, text]})
+        counter += 1
     menu_buttons['start_button'].size = (round(560 * COEFFICIENT), height)
     menu_buttons['start_button'].place = [
         user.size[0] // 2 +
@@ -360,13 +370,6 @@ def init_content(
         user.size[1] -
         sim_button.size[1] * 1.5]
     menu_buttons['start_button'].update()
-    help_text = sql.execute(
-        "SELECT text FROM '{}' WHERE class = 'text' and name = 'help_text'".format(
-            user.language)).fetchone()[0]
-    help_text = split_by_separator(help_text, 43)
-    help_text = list(help_text)
-    text_dict = {}
-    text_dict.update({'help_text': help_text})
     images = {"objects": {}, "background": [], "logo": None}
     for i in range(1, 16):  # animated background
         images['background'].append(
@@ -590,13 +593,13 @@ def main_menu(
         k += 1
         if k == len(bkgr) * 5:
             k = 0
-        menu_buttons['choose_button'].draw()
-        menu_buttons['settings_button'].draw()
-        menu_buttons['help_button'].draw()
-        menu_buttons['exit_button'].draw()
+        menu_buttons['choose_button'].draw(user=user)
+        menu_buttons['settings_button'].draw(user=user)
+        menu_buttons['help_button'].draw(user=user)
+        menu_buttons['exit_button'].draw(user=user)
         fps_val(False)
         if error and int(round(time() * 1000)) - error_window_timer < 5000:
-            error_window.draw()
+            error_window.draw(user=user)
         user.screen.blit(
             images['logo'],
             ((user.size[0] - images['logo'].get_width()) // 2,
@@ -740,7 +743,7 @@ def choosing_window(
         if k == len(bkgr) * 5:
             k = 0  # if k out of limit
         for i in simulations_content:
-            simulations_content[i][1].draw()
+            simulations_content[i][1].draw(user=user)
         if pre_selected:
             if pre_selected != last_pre_selected:  # avoidance of repeating
                 img = simulations_content[pre_selected][2]
@@ -771,7 +774,7 @@ def choosing_window(
                     user.screen.blit(
                         print_text, (text_backgr.topleft[0], text_backgr.topleft[1] + o))
                     o += 30 * COEFFICIENT
-            start_button.draw()
+            start_button.draw(user=user)
         fps_val(False)
         pygame.display.update()
         clock.tick(user.fps)
@@ -856,8 +859,11 @@ def settings_window(
                     text = split_by_separator(i[2], 43)
                     text = list(text)
                     try:
-                        simulations_content[i[1]][3] = text
-                    except Exception:
+                        if i[0] == "info":
+                            simulations_content[i[1]][3] = text
+                        elif i[0] == "text":
+                            text_dict[i[1]] = text
+                    except Exception as e:
                         continue
             db.close()
         click = False
@@ -879,8 +885,8 @@ def settings_window(
         else:  # if help window is launched from the simulation
             user.screen.blit(bkgr, backgrrect)
             user.screen.blit(transparent_surf, (0, 0))
-        menu_buttons['lang_button'].draw()
-        menu_buttons['lang_table'].draw()
+        menu_buttons['lang_button'].draw(user=user)
+        menu_buttons['lang_table'].draw(user=user)
         fps_val(False)
         pygame.display.update()
         clock.tick(user.fps)
@@ -1001,12 +1007,12 @@ def ingame_main_menu(
             switch = False
         if saved_window_timer and int(
                 round(time() * 1000)) - saved_window_timer < 3000:
-            saved_window.draw()
-        menu_buttons['continue_button'].draw()
-        menu_buttons['save_button'].draw()
-        menu_buttons['ingame_settings_button'].draw()
-        menu_buttons['ingame_help_button'].draw()
-        menu_buttons['ingame_exit_button'].draw()
+            saved_window.draw(user=user)
+        menu_buttons['continue_button'].draw(user=user)
+        menu_buttons['save_button'].draw(user=user)
+        menu_buttons['ingame_settings_button'].draw(user=user)
+        menu_buttons['ingame_help_button'].draw(user=user)
+        menu_buttons['ingame_exit_button'].draw(user=user)
         fps_val(False)
         pygame.display.update()
         clock.tick(user.fps)
@@ -1070,7 +1076,7 @@ def mode_elements(
             (user.size[0] - 350 * COEFFICIENT, 
              user.size[1] - 35 * COEFFICIENT),
             (user.size[0] - 350 * COEFFICIENT, 
-             user.size[1] - COEFFICIENT), 1)
+             user.size[1] - 235 * COEFFICIENT), 1)
         pygame.draw.line(
             user.screen, '#555555',
             (user.size[0] - 350 * COEFFICIENT,
@@ -1176,13 +1182,6 @@ def simulation_loop(
     pause = False
     mode = False
     simulation_time = 0
-    if len(space_objects) > 1000:  # loading bar display
-        pygame.draw.rect(
-            user.screen, '#005ffe',
-            (user.size[0] // 2 - 500 * COEFFICIENT,
-             user.size[1] // 2 - user.size[1] / 31,
-             1000 * COEFFICIENT, user.size[1] / 31))
-        pygame.display.update()
     while sim_cycle:
         for event in pygame.event.get():
             if event.type == KEYDOWN:
@@ -1218,8 +1217,9 @@ def simulation_loop(
                     user.screen.fill('#000000')
                     space_objects = []
                     space_objects = init_simulation(
-                        obj_list=space_objects, name=simulation_name, 
-                        images=images['objects'], user=user, 
+                        name=simulation_name, 
+                        images=images['objects'], user=user,
+                        HOME_DIR=HOME_DIR,
                         COEFFICIENT=COEFFICIENT)
                     [space_objects[i].update(zoom)
                      for i in range(len(space_objects))]
@@ -1375,7 +1375,54 @@ def simulation_loop(
         clock.tick(user.fps)
 
 
+def main():
+    simulations_content, menu_buttons, images, languages, text_dict = init_content(
+        user=user, HOME_DIR=HOME_DIR, COEFFICIENT=COEFFICIENT)
+    simulation_name = None
+    space_objects = ['', '']
+    main_loop = True
+    error = None
+    while main_loop:
+        main_loop, simulation_name, user.language = main_menu(
+            error=error, simulations_content=simulations_content, 
+            languages=languages, menu_buttons=menu_buttons, 
+            text_dict=text_dict, images=images, user=user, 
+            COEFFICIENT=COEFFICIENT)
+        if simulation_name:
+            space_objects = init_simulation(
+                name=simulation_name,
+                images=images['objects'], user=user,
+                HOME_DIR=HOME_DIR,
+                COEFFICIENT=COEFFICIENT)
+            if space_objects[0] != 'error':
+                main_loop, languages = simulation_loop(
+                    space_objects=space_objects, 
+                    simulation_name=simulation_name, 
+                    images=images, menu_buttons=menu_buttons, 
+                    simulations_content=simulations_content, 
+                    text_dict=text_dict, languages=languages, 
+                    user=user, COEFFICIENT=COEFFICIENT, 
+                    DT=DT, G=G, DIST_COEFF=DIST_COEFF)
+                simulation_name = error = None
+                space_objects = ['', '']
+            else:
+                error = space_objects[1]
+    if user.language in languages:
+        db = sqlite3.connect(HOME_DIR + 'database.db')
+        sql = db.cursor()
+        sql.execute(
+            "UPDATE settings SET language = '{}' WHERE user = 'user01'".format(
+                user.language))
+        db.commit()
+        db.close()
+    pygame.quit()
+    exit('Exit')
+
+
 if __name__ == '__main__':
+    cur_time = int(round(time() * 1000))
+    frames = 0  # frames' counter
+    fps = 0
     pygame.init()
     user = settings(autosize=True)
     user.screen = pygame.display.set_mode(user.size, pygame.FULLSCREEN)
@@ -1413,46 +1460,4 @@ if __name__ == '__main__':
         font_size += 1
         SIM_INFO_FONT = pygame.font.Font(
             HOME_DIR + 'data/Anonymous Pro B.ttf', font_size)
-    simulations_content, menu_buttons, images, languages, text_dict = init_content(
-        user=user, COEFFICIENT=COEFFICIENT)
-    simulation_name = None
-    space_objects = ['', '']
-    main_loop = True
-    error = None
-    cur_time = int(round(time() * 1000))
-    frames = 0  # frames' counter
-    fps = 0
-    while main_loop:
-        main_loop, simulation_name, user.language = main_menu(
-            error=error, simulations_content=simulations_content, 
-            languages=languages, menu_buttons=menu_buttons, 
-            text_dict=text_dict, images=images, user=user, 
-            COEFFICIENT=COEFFICIENT)
-        if simulation_name:
-            space_objects = init_simulation(
-                obj_list=space_objects, name=simulation_name,
-                images=images['objects'], user=user, 
-                COEFFICIENT=COEFFICIENT)
-            if space_objects[0] != 'error':
-                main_loop, languages = simulation_loop(
-                    space_objects=space_objects, 
-                    simulation_name=simulation_name, 
-                    images=images, menu_buttons=menu_buttons, 
-                    simulations_content=simulations_content, 
-                    text_dict=text_dict, languages=languages, 
-                    user=user, COEFFICIENT=COEFFICIENT, 
-                    DT=DT, G=G, DIST_COEFF=DIST_COEFF)
-                simulation_name = error = None
-                space_objects = ['', '']
-            else:
-                error = space_objects[1]
-    if user.language in languages:
-        db = sqlite3.connect(HOME_DIR + 'database.db')
-        sql = db.cursor()
-        sql.execute(
-            "UPDATE settings SET language = '{}' WHERE user = 'user01'".format(
-                user.language))
-        db.commit()
-        db.close()
-    pygame.quit()
-    exit('Exit')
+    main()
