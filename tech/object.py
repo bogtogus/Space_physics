@@ -1,6 +1,6 @@
 import pygame
 from math import cos, sin, asin, pi, degrees, atan2, radians, ceil, hypot
-from constants import *
+from global_values import *
 
 
 class obj:

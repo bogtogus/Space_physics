@@ -22,7 +22,7 @@ def change_language(languages=None, menu_buttons=None,
                     simulations_content=None, text_dict=None, user=None):
     """This function changes the language from the list to the next one."""
     from sqlite3 import connect
-    from constants import HOME_DIR
+    from global_values import HOME_DIR
     db = connect(HOME_DIR + 'database.db')
     sql = db.cursor()
     for i in range(len(languages)):
@@ -52,7 +52,7 @@ def change_language(languages=None, menu_buttons=None,
 
 def db_change_language(user=None, languages=None):
     from sqlite3 import connect
-    from constants import HOME_DIR
+    from global_values import HOME_DIR
     if user.language in languages:
         db = connect(HOME_DIR + 'database.db')
         sql = db.cursor()

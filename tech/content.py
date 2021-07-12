@@ -1,6 +1,6 @@
 def init_content():
     """This function creates all main dicts, lists and gets current language."""
-    from constants import COEFFICIENT, HOME_DIR, user
+    from global_values import COEFFICIENT, HOME_DIR, user
     from tech.button import button
     from tech.tools import split_by_separator
     from sqlite3 import connect

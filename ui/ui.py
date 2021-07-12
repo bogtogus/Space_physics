@@ -1,7 +1,7 @@
 import pygame
 from pygame.locals import *
 from time import time, strftime, localtime
-from constants import *
+from global_values import *
 from tech import engine, tools, content, simulation
 from tech.button import button
 

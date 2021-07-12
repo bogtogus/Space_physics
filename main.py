@@ -1,4 +1,4 @@
-from gui.ui import run
+from ui.ui import run
 
 
 if __name__ == '__main__':

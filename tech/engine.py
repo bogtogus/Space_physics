@@ -54,14 +54,6 @@ def step(space_objects=None, DT=1.0, G=1.0):
                     F1 - f)) * sin(f)) / (m1 + m2) + v2 * sin(F2 - f) * sin(f + pi / 2)
                 space_objects[i].coll = True
                 break
-                #if r < j_obj.r + i_obj.r and i_obj.m <= j_obj.m:  # moving an inbound object out of another
-                #  a = (5 * 10 ** -9 * i_obj.m) / (r * r)
-                #  ax = - a * dx / r  # a * cos
-                #   ay = - a * dy / r  # a * sin
-                #   space_objects[i].vx += ax * DT
-                #   space_objects[i].vy += ay * DT
-                #else:
-                #  break
         else:
             space_objects[i].coll = False
     for i in range(len(space_objects) - 1, -1, -1):

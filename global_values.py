@@ -2,7 +2,7 @@ import pygame
 from inspect import currentframe, getframeinfo
 from os.path import dirname, abspath
 from time import time
-from gui.settings import settings
+from ui.settings import settings
 
 
 user = settings(autosize=True)

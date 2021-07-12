@@ -1,6 +1,6 @@
 from time import strftime, strptime, ctime, time
 from sqlite3 import connect
-from constants import HOME_DIR, COEFFICIENT, DEAFULT_FONT
+from global_values import HOME_DIR, COEFFICIENT, DEAFULT_FONT
 from tech.button import button
 import pygame 
 
