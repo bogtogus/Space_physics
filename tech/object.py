@@ -9,7 +9,7 @@ class obj:
             img=None, img_name='', 
             r=1.0, m=1.0, vx=0.0, 
             vy=0.0, win_size=(), 
-            display_surf=None):
+            surface=None):
         self.x = x  # object class stores all physical quantities in the SI system
         self.y = y
         self.r = r
@@ -20,7 +20,7 @@ class obj:
         self.win_size = win_size
         self.img_name = img_name
         self.transformed_img = img
-        self.display_surf = display_surf
+        self.surface = surface
         self.coll = False  # collision state (True if collision happened)
 
     def update(self, zoom=1.0) -> None:
@@ -48,21 +48,21 @@ class obj:
                 position_on_display[0] + self.r * DIST_COEFF * zoom < 0 or \
                 position_on_display[1] - self.r * DIST_COEFF * zoom > self.win_size[1] or \
                 position_on_display[1] + self.r * DIST_COEFF * zoom < 0:
-            return  # do not draw objects outside the display_surf
+            return  # do not draw objects outside the surface
         if self.img_name == 'circle':
             if self.r * DIST_COEFF * zoom > 2:
                 pygame.draw.circle(
-                    self.display_surf, '#777777',
+                    self.surface, '#777777',
                     (int((self.x * DIST_COEFF + movement[0]) * zoom),
                      int((self.y * DIST_COEFF + movement[1]) * zoom)),
                     self.r * DIST_COEFF * zoom)
             else:
                 pygame.draw.circle(
-                    self.display_surf, '#777777',
+                    self.surface, '#777777',
                     (int((self.x * DIST_COEFF + movement[0]) * zoom),
                      int((self.y * DIST_COEFF + movement[1]) * zoom)), 2)
         else:
-            self.display_surf.blit(
+            self.surface.blit(
                 self.transformed_img, 
                 (int((self.x * DIST_COEFF + movement[0]) * zoom -
                      self.transformed_img.get_width() // 2), 
@@ -81,30 +81,30 @@ class obj:
                 end = [start[0] + 100 * cos_dir * zoom,
                        start[1] + 100 * sin_dir * zoom]  # end point of line
                 rotation = degrees(atan2(start[1] - end[1], end[0] - start[0])) + 90
-                pygame.draw.line(self.display_surf, '#c80000', start, end, 2)  # direction line
+                pygame.draw.line(self.surface, '#c80000', start, end, 2)  # direction line
                 pygame.draw.polygon(
-                    self.display_surf, '#c80000',
+                    self.surface, '#c80000',
                     ((end[0] + (10 * sin(radians(rotation))) * zoom,
                       end[1] + (10 * cos(radians(rotation))) * zoom),
                      (end[0] + (5 * sin(radians(rotation - 120))) * zoom,
                       end[1] + (5 * cos(radians(rotation - 120))) * zoom),
                      (end[0] + (5 * sin(radians(rotation + 120))) * zoom,
                       end[1] + (5 * cos(radians(rotation + 120))) * zoom)))  # arrowhead
-            self.display_surf.blit(
+            self.surface.blit(
                 OBJ_INFO_FONT.render(
                     "vx, vy: {}, {} km/s".format(round(self.vx /1000, 3),
                                                  round(self.vy / 1000, 3)),
                     True, '#c8c8c8'),
                 (x_coord, y_coord - 26 * COEFFICIENT))
-            self.display_surf.blit(
+            self.surface.blit(
                 OBJ_INFO_FONT.render(
                     "m: " + str(self.m) + ' kg', True, '#c8c8c8'), 
                 (x_coord, y_coord - 10 * COEFFICIENT))
-            self.display_surf.blit(
+            self.surface.blit(
                 OBJ_INFO_FONT.render(
                     "coll: " + str(self.coll), True, '#c8c8c8'), 
                 (x_coord, y_coord + 6 * COEFFICIENT))
-            self.display_surf.blit(
+            self.surface.blit(
                 OBJ_INFO_FONT.render(
                     "vx, vy: {}, {} km/s".format(round(self.vx / 1000, 3),
                                                  round(self.vy / 1000, 3)),

@@ -4,6 +4,8 @@ from time import time, strftime, localtime
 from global_values import *
 from tech import engine, tools, content, simulation
 from tech.button import button
+from tech.object import obj
+from math  import hypot, ceil
 
 
 def run():
@@ -23,7 +25,7 @@ def run():
                 name=simulation_name,
                 images=images['objects'],
                 win_size=user.size,
-                display_surf=display_surf,
+                surface=display_surf,
                 HOME_DIR=HOME_DIR)
             if space_objects[0] != 'error':
                 main_loop, languages = simulation_loop(
@@ -733,11 +735,11 @@ def simulation_loop(
                                 zoom * DIST_COEFF
                             if - r_on_display < mx - position_on_display[0] < r_on_display and \
                                     - r_on_display < my - position_on_display[1] < r_on_display:
+                                velocity_graph_data = []
                                 if selected_obj == o:
-                                    movement_obj[0] = - space_objects[selected_obj].x * DIST_COEFF
-                                    movement_obj[1] = - space_objects[selected_obj].y * DIST_COEFF
+                                    movement_obj[0] = space_objects[selected_obj].x * DIST_COEFF
+                                    movement_obj[1] = space_objects[selected_obj].y * DIST_COEFF
                                     selected_obj = None
-                                    velocity_graph_data = []
                                 else:
                                     selected_obj = o
                                 break
@@ -748,7 +750,8 @@ def simulation_loop(
                         anObject = obj(int((mx / zoom - movement[0]) / DIST_COEFF), 
                                        int((my / zoom - movement[1]) / DIST_COEFF), 
                                        images['objects']['star_img'], img_name, 
-                                       16e+6, 1e+22)
+                                       16e+6, 1e+22,
+                                       win_size=user.size, surface=display_surf)
                         anObject.update(zoom)
                         space_objects.append(anObject)
                 if event.button == 4:  # mouse wheel forward
@@ -776,7 +779,8 @@ def simulation_loop(
                                    images['objects']['star_img'], img_name,
                                    16e+6, 1e+22,
                                    (pygame.mouse.get_pos()[0] - mx) * 10,
-                                   (pygame.mouse.get_pos()[1] - my) * 10)
+                                   (pygame.mouse.get_pos()[1] - my) * 10,
+                                   win_size=user.size, surface=display_surf)
                     anObject.update(zoom=zoom)
                     space_objects.append(anObject)
             if event.type == KEYUP:
@@ -808,33 +812,34 @@ def simulation_loop(
         if not(pause):
             engine.step(space_objects=space_objects, DT=DT, G=G)
             simulation_time += DT
-        if selected_obj is not None and not(pause):  
+        if selected_obj is not None:  
             # camera follows the selected object
             movement[0] = - space_objects[selected_obj].x * \
                 DIST_COEFF + (user.size[0] // 2) / zoom
             movement[1] = - space_objects[selected_obj].y * \
                 DIST_COEFF + (user.size[1] // 2) / zoom
-            if len(velocity_graph_data) >= 200:
-                velocity_graph_data.pop(0)
-                for t in range(len(velocity_graph_data)):
-                    velocity_graph_data[t][0] -= 1.5 * COEFFICIENT
-            if int(round(time() * 1000)) - \
-                    velocity_add_timer > 50 or velocity_add_timer == 0:  # addition velocity data
-                velocity_add_timer = int(round(time() * 1000))
-                obj_velocity = hypot(
-                    space_objects[selected_obj].vx,
-                    space_objects[selected_obj].vy)
-                velocity_graph_data.append(
-                    [(user.size[0] - 350 + len(velocity_graph_data) * 1.5) * COEFFICIENT,
-                     (user.size[1] - 35 - 200 * obj_velocity / maximum) * COEFFICIENT,
-                     obj_velocity])  # [X on display, Y on display, velocity]
-                if max(velocity_graph_data, key=lambda x: x[2])[2] > 0 and \
-                        max(velocity_graph_data, key=lambda x: x[2])[2] != maximum:
-                    maximum = max(velocity_graph_data, key=lambda x: x[2])[2]
-                    for t in range(len(velocity_graph_data)):  
-                        # changing y-coordinate for all data
-                        velocity_graph_data[t][1] = (user.size[1] - 35 - 
-                            200 * velocity_graph_data[t][2] / maximum) * COEFFICIENT
+            if not(pause):
+                if len(velocity_graph_data) >= 200:
+                    velocity_graph_data.pop(0)
+                    for t in range(len(velocity_graph_data)):
+                        velocity_graph_data[t][0] -= 1.5 * COEFFICIENT
+                if int(round(time() * 1000)) - \
+                        velocity_add_timer > 50 or velocity_add_timer == 0:  # addition velocity data
+                    velocity_add_timer = int(round(time() * 1000))
+                    obj_velocity = hypot(
+                        space_objects[selected_obj].vx,
+                        space_objects[selected_obj].vy)
+                    velocity_graph_data.append(
+                        [(user.size[0] - 350 + len(velocity_graph_data) * 1.5) * COEFFICIENT,
+                         (user.size[1] - 35 - 200 * obj_velocity / maximum) * COEFFICIENT,
+                         obj_velocity])  # [X on display, Y on display, velocity]
+                    if max(velocity_graph_data, key=lambda x: x[2])[2] > 0 and \
+                            max(velocity_graph_data, key=lambda x: x[2])[2] != maximum:
+                        maximum = max(velocity_graph_data, key=lambda x: x[2])[2]
+                        for t in range(len(velocity_graph_data)):  
+                            # changing y-coordinate for all data
+                            velocity_graph_data[t][1] = (user.size[1] - 35 - 
+                                200 * velocity_graph_data[t][2] / maximum) * COEFFICIENT
         else:  # camera follows the movement_obj
             movement[0] = - movement_obj[0] + (user.size[0] // 2) / zoom
             movement[1] = - movement_obj[1] + (user.size[1] // 2) / zoom
