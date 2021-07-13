@@ -9,7 +9,7 @@ def initialise(
         name=None,
         images={},
         win_size=None,
-        display_surf=None,
+        surface=None,
         HOME_DIR=None):
     """This function creates a list of simulanion's objects."""
     import traceback
@@ -30,7 +30,7 @@ def initialise(
                 img = img_name = 'circle'
             anObject = obj(float(ob[0]), float(ob[1]), 
                            img, img_name, 
-                           float(ob[3]), float(ob[4]), win_size=win_size, display_surf=display_surf)
+                           float(ob[3]), float(ob[4]), win_size=win_size, surface=surface)
             if float(ob[5]) != 0 or float(ob[6]) != 0:  # vx, vy
                 anObject.vx = float(ob[5])
                 anObject.vy = float(ob[6])
