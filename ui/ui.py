@@ -707,7 +707,7 @@ def simulation_loop(
                         name=simulation_name, 
                         images=images['objects'],
                         win_size=user.size,
-                        display_surf=display_surf,
+                        surface=display_surf,
                         HOME_DIR=HOME_DIR)
                     [space_objects[i].update(zoom)
                      for i in range(len(space_objects))]
