@@ -830,16 +830,16 @@ def simulation_loop(
                         space_objects[selected_obj].vx,
                         space_objects[selected_obj].vy)
                     velocity_graph_data.append(
-                        [(user.size[0] - 350 + len(velocity_graph_data) * 1.5) * COEFFICIENT,
-                         (user.size[1] - 35 - 200 * obj_velocity / maximum) * COEFFICIENT,
+                        [user.size[0] - (350 - len(velocity_graph_data) * 1.5)*COEFFICIENT,
+                         user.size[1] - (35*COEFFICIENT + 200 * obj_velocity / maximum)* COEFFICIENT,
                          obj_velocity])  # [X on display, Y on display, velocity]
                     if max(velocity_graph_data, key=lambda x: x[2])[2] > 0 and \
                             max(velocity_graph_data, key=lambda x: x[2])[2] != maximum:
                         maximum = max(velocity_graph_data, key=lambda x: x[2])[2]
                         for t in range(len(velocity_graph_data)):  
                             # changing y-coordinate for all data
-                            velocity_graph_data[t][1] = (user.size[1] - 35 - 
-                                200 * velocity_graph_data[t][2] / maximum) * COEFFICIENT
+                            velocity_graph_data[t][1] = user.size[1] - (35 + 
+                                200 * velocity_graph_data[t][2] / maximum)* COEFFICIENT 
         else:  # camera follows the movement_obj
             movement[0] = - movement_obj[0] + (user.size[0] // 2) / zoom
             movement[1] = - movement_obj[1] + (user.size[1] // 2) / zoom
